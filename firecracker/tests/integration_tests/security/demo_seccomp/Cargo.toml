@@ -1,0 +1,12 @@
+[package]
+name = "demo_seccomp"
+version = "0.1.0"
+authors = ["Amazon Firecracker team <firecracker-devel@amazon.com>"]
+edition = "2018"
+
+[dependencies]
+libc = ">=0.2.39"
+
+seccomp = { path = "../../../../src/seccomp" }
+
+[workspace]

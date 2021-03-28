@@ -1,0 +1,18 @@
+[package]
+name = "firecracker"
+version = "0.24.0"
+authors = ["Amazon Firecracker team <firecracker-devel@amazon.com>"]
+edition = "2018"
+build = "../../build.rs"
+
+[dependencies]
+libc = ">=0.2.39"
+timerfd = ">=1.0"
+
+api_server = { path = "../api_server" }
+logger = { path = "../logger" }
+mmds = { path = "../mmds" }
+polly = { path = "../polly" }
+seccomp = { path = "../seccomp" }
+utils = { path = "../utils" }
+vmm = { path = "../vmm" }
