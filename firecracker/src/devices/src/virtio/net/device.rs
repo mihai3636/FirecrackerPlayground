@@ -37,6 +37,8 @@ use virtio_gen::virtio_net::{
 };
 use vm_memory::{ByteValued, Bytes, GuestAddress, GuestMemoryError, GuestMemoryMmap};
 
+// added by me
+
 enum FrontendError {
     AddUsed,
     DescriptorChainTooSmall,
@@ -402,14 +404,19 @@ impl Net {
 
         // This frame goes to the TAP.
 
+
+        // Removed by Mihai
         // Check for guest MAC spoofing.
-        if let Some(mac) = guest_mac {
-            let _ = EthernetFrame::from_bytes(checked_frame(frame_buf)?).map(|eth_frame| {
-                if mac != eth_frame.src_mac() {
-                    METRICS.net.tx_spoofed_mac_count.inc();
-                }
-            });
-        }
+
+        // if let Some(mac) = guest_mac {
+        //     let _ = EthernetFrame::from_bytes(checked_frame(frame_buf)?).map(|eth_frame| {
+        //         if mac != eth_frame.src_mac() {
+        //             METRICS.net.tx_spoofed_mac_count.inc();
+        //         }
+        //     });
+        // }
+
+        warn!("{:?}", frame_buf);
 
         match tap.write(frame_buf) {
             Ok(_) => {
@@ -685,6 +692,8 @@ impl Net {
     }
 
     pub fn process_tx_queue_event(&mut self) {
+        
+
         METRICS.net.tx_queue_event_count.inc();
         if let Err(e) = self.queue_evts[TX_INDEX].read() {
             error!("Failed to get tx queue event: {:?}", e);
