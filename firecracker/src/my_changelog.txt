@@ -1,2 +1,7 @@
 1) Added the logger.txt file at /home/mihai/logger.txt, configured the debug json to start firecracker with logger.
 2) Commenting out MAC Spoofing at write_to_mmds_or_tap() from device.rs
+3) Found the sweetspot for writting on TAP.
+
+TO DO:
+
+create the DPDK client.

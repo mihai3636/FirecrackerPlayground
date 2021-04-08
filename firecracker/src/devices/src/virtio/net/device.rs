@@ -15,8 +15,8 @@ use crate::virtio::{
     ActivateResult, DeviceState, Queue, VirtioDevice, TYPE_NET, VIRTIO_MMIO_INT_VRING,
 };
 use crate::{report_net_event_fail, Error as DeviceError};
-
-use dumbo::pdu::ethernet::EthernetFrame;
+//Removed by Mihai
+// use dumbo::pdu::ethernet::EthernetFrame;
 use libc::EAGAIN;
 use logger::{error, warn, IncMetric, METRICS};
 use mmds::ns::MmdsNetworkStack;
@@ -37,7 +37,9 @@ use virtio_gen::virtio_net::{
 };
 use vm_memory::{ByteValued, Bytes, GuestAddress, GuestMemoryError, GuestMemoryMmap};
 
-// added by me
+// added by Mihai
+use std::sync::mpsc::{Sender, Receiver};
+use std::sync::mpsc;
 
 enum FrontendError {
     AddUsed,
@@ -129,6 +131,9 @@ pub struct Net {
 
     #[cfg(test)]
     pub(crate) mocks: Mocks,
+
+    // Added by Mihai
+    tx_channel: Sender<i32>,
 }
 
 impl Net {
@@ -181,6 +186,19 @@ impl Net {
         } else {
             None
         };
+        
+        let (tx_channel, rx_channel): (Sender<i32>, Receiver<i32>) = mpsc::channel();
+
+        //Added by Mihai
+        std::thread::spawn(move || {
+            loop {
+                match rx_channel.recv_timeout(std::time::Duration::from_secs(20)) {
+                    Ok(numar) => { warn!("Received something! Number is: {}\n", numar) },
+                    Err(_) => { warn!("Nothing received.\n" )}
+                };
+            }
+        });
+
         Ok(Net {
             id,
             tap,
@@ -206,6 +224,7 @@ impl Net {
 
             #[cfg(test)]
             mocks: Mocks::default(),
+            tx_channel
         })
     }
 
@@ -416,8 +435,10 @@ impl Net {
         //     });
         // }
 
-        warn!("{:?}", frame_buf);
+        // warn!("{:?}", frame_buf);
 
+        // now I need to send this frame_buf to my DPDK Client!
+        // so let's create the client
         match tap.write(frame_buf) {
             Ok(_) => {
                 METRICS.net.tx_bytes_count.add(frame_buf.len());
@@ -589,6 +610,10 @@ impl Net {
                     }
                 }
             }
+            
+            //Added by Mihai
+            // I need to use self, so I will send from here.Receiver
+            self.tx_channel.send(99).unwrap();
 
             let frame_consumed_by_mmds = Self::write_to_mmds_or_tap(
                 self.mmds_ns.as_mut(),
