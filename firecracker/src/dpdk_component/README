@@ -1,3 +1,62 @@
+CURRENT README:
+
+-----------------------------------------------------------------------------
+when using cargo build, I'm getting the following error:
+--------------------------------------------------------------------------------
+
+
+The following warnings were emitted during compilation:
+
+warning: In file included from src/static-functions.c:1:
+warning: src/../include/static-functions.h:1:10: fatal error: rte_ring.h: No such file or directory
+warning:     1 | #include <rte_ring.h>
+warning:       |          ^~~~~~~~~~~~
+warning: compilation terminated.
+
+error: failed to run custom build command for `dpdk_component v0.1.0 (/home/mihai/firecracker/firecracker/src/dpdk_component)`
+
+Caused by:
+  process didn't exit successfully: `/home/mihai/firecracker/firecracker/build/cargo_target/debug/build/dpdk_component-0dce60f3f4441bcd/build-script-build` (exit code: 1)
+  --- stdout
+  TARGET = Some("x86_64-unknown-linux-musl")
+  OPT_LEVEL = Some("0")
+  HOST = Some("x86_64-unknown-linux-gnu")
+  CC_x86_64-unknown-linux-musl = None
+  CC_x86_64_unknown_linux_musl = None
+  TARGET_CC = None
+  CC = None
+  CROSS_COMPILE = None
+  CFLAGS_x86_64-unknown-linux-musl = None
+  CFLAGS_x86_64_unknown_linux_musl = None
+  TARGET_CFLAGS = None
+  CFLAGS = None
+  CRATE_CC_NO_DEFAULTS = None
+  DEBUG = Some("true")
+  CARGO_CFG_TARGET_FEATURE = Some("fxsr,sse,sse2")
+  running: "musl-gcc" "-O0" "-ffunction-sections" "-fdata-sections" "-fPIC" "-g" "-fno-omit-frame-pointer" "-m64" "-Wall" "-Wextra" "-Wno-unused-parameter" "-lrte_ring" "-lrte_mempool" "-lrte_mbuf" "-o" "/home/mihai/firecracker/firecracker/build/cargo_target/x86_64-unknown-linux-musl/debug/build/dpdk_component-727022436a195dde/out/src/static-functions.o" "-c" "src/static-functions.c"
+  cargo:warning=In file included from src/static-functions.c:1:
+  cargo:warning=src/../include/static-functions.h:1:10: fatal error: rte_ring.h: No such file or directory
+  cargo:warning=    1 | #include <rte_ring.h>
+  cargo:warning=      |          ^~~~~~~~~~~~
+  cargo:warning=compilation terminated.
+  exit code: 1
+
+  --- stderr
+
+
+  error occurred: Command "musl-gcc" "-O0" "-ffunction-sections" "-fdata-sections" "-fPIC" "-g" "-fno-omit-frame-pointer" "-m64" "-Wall" "-Wextra" "-Wno-unused-parameter" "-lrte_ring" "-lrte_mempool" "-lrte_mbuf" "-o" "/home/mihai/firecracker/firecracker/build/cargo_target/x86_64-unknown-linux-musl/debug/build/dpdk_component-727022436a195dde/out/src/static-functions.o" "-c" "src/static-functions.c" with args "musl-gcc" did not execute successfully (status code exit code: 1).
+
+
+
+
+
+
+
+
+
+--------------------------------------------------------------------------------------
+OLD README from another package.
+
 trying to get access to rte_mbuf structure.
 
 I got access to rte_ring_dequeue, but not tested yet.
