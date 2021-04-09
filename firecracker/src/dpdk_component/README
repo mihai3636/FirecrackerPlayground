@@ -1,0 +1,18 @@
+trying to get access to rte_mbuf structure.
+
+I got access to rte_ring_dequeue, but not tested yet.
+I try to compile my own .c file which wraps the rte_ring_dequeue because it is static inline.
+
+bindgen command:
+
+bindgen --generate-inline-functions include/static-functions.h -o src/bindingsMbuf.rs -- -include rte_config.h -march=native -I/usr/local/include
+
+
+WARNING:
+
+Something strange happened.
+Every time I was trying to eal_init, I got an error.
+The error disappeared after starting the dpdk_reader_server serve app.
+Some packets were received, which is strange.
+
+Only after running that app, I was able to start other programs to work with eal_init.

@@ -22,3 +22,4 @@ snapshot = { path = "../snapshot" }
 utils = { path = "../utils" }
 virtio_gen = { path = "../virtio_gen" }
 
+dpdk_component = { path = "../dpdk_component" }

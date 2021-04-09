@@ -112,6 +112,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cc"
+version = "1.0.67"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3c69b077ad434294d3ce9f1f6143a2a4b89a8a2d54ef813d85003a4fd1137fd"
+dependencies = [
+ "jobserver",
+]
+
+[[package]]
 name = "cfg-if"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -269,6 +278,7 @@ checksum = "f18f717c5c7c2e3483feb64cccebd077245ad6d19007c2db0fd341d38595353c"
 name = "devices"
 version = "0.1.0"
 dependencies = [
+ "dpdk_component",
  "dumbo",
  "libc",
  "logger",
@@ -284,6 +294,13 @@ dependencies = [
  "versionize_derive",
  "virtio_gen",
  "vm-memory 0.1.0",
+]
+
+[[package]]
+name = "dpdk_component"
+version = "0.1.0"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
@@ -355,6 +372,15 @@ dependencies = [
  "libc",
  "regex",
  "utils",
+]
+
+[[package]]
+name = "jobserver"
+version = "0.1.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c71313ebb9439f74b00d9d2dcec36440beaf57a6aa0623068441dd7cd81a7f2"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
