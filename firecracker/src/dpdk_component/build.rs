@@ -1,15 +1,14 @@
-fn main() {
-    // Tell cargo to tell rustc to link the system bzip2
-    // shared library.
-    // println!("cargo:rustc-link-lib=rte_ring");
-    // println!("cargo:rustc-link-lib=rte_mempool");
+// use std::path::Path;
 
-    // Tell cargo to invalidate the built crate whenever the wrapper changes
-    // println!("cargo:rerun-if-changed=wrapper.h");
+fn main() {
 
     let _src = ["src/static-functions.c"];
     println!("cargo:rerun-if-changed=build.rs");
 
+    // let path1 = Path::new("/usr/local/include");
+    // let path2 = Path::new("/usr/include/x86_64-linux-gnu");
+    // let path3 = Path::new("/usr/include/linux");
+    // let path4 = Path::new("/usr/include/asm-generic");
 
     let mut builder = cc::Build::new();
     let build = builder
@@ -65,12 +64,15 @@ fn main() {
         .flag("-lrte_rcu")
         .flag("-lrte_eal")
         .flag("-lrte_telemtry")
-        .flag("-lrte_kvargs")
-        .flag("-I/usr/include/asm-generic")
-        .flag("-I/usr/include/linux")
-        .flag("-I/usr/local/include")
-        .flag("-I/usr/include/x86_64-linux-gnu");
-        // .flag("-I/usr/include");
-        // .flag("-I/usr/lib");
+        .flag("-lrte_kvargs");
+        // .include(path1)
+        // .include(path2)
+        // .include(path3)
+        // .include(path4);
+        // .flag("-I/usr/include/asm-generic")
+        // .flag("-I/usr/include/linux")
+        // .flag("-I/usr/local/include")
+        // .flag("-I/usr/include/x86_64-linux-gnu");
+
     build.compile("foo");
 }
