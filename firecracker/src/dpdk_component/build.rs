@@ -8,6 +8,8 @@ fn main() {
     // println!("cargo:rerun-if-changed=wrapper.h");
 
     let _src = ["src/static-functions.c"];
+    println!("cargo:rerun-if-changed=build.rs");
+
 
     let mut builder = cc::Build::new();
     let build = builder
@@ -64,7 +66,10 @@ fn main() {
         .flag("-lrte_eal")
         .flag("-lrte_telemtry")
         .flag("-lrte_kvargs")
-        .flag("-I/usr/local/include");
+        .flag("-I/usr/include/asm-generic")
+        .flag("-I/usr/include/linux")
+        .flag("-I/usr/local/include")
+        .flag("-I/usr/include/x86_64-linux-gnu");
         // .flag("-I/usr/include");
         // .flag("-I/usr/lib");
     build.compile("foo");
