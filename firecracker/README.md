@@ -1,3 +1,39 @@
+Mihai's README
+
+How to run firecracker in debug mod inside the Virtual Machine:
+
+on the host:
+
+sudo ./createBridges
+
+Start Virtual Machine
+
+on virtual machine:
+sudo ip addr add 10.0.2.2/24 dev enp4s0  // you have to do it a couple of times because it randomly deletes itself at first
+
+Now connect Visual Studio Code Remote to 10.0.2.2 using the bridge interface.
+
+on virtual machine:
+(only one time) sudo ./createNetwork.sh
+
+on host:
+(on the visual code remote terminal) rm -f /tmp/firecracker.socket
+start debugging from visual code using the existing launch.json, for more info check launch.json
+
+on virtual machine:
+sudo ./prepare_and_run_guest.sh
+
+on the firecracker terminal:
+
+ip addr add 172.16.0.2/24 dev eth0
+ip link set eth0 up
+ip route add default via 172.16.0.1 dev eth0
+
+
+INFO about cargo build command inside the dpdk_component README!!!!!!!!!!!!!!!!!!!!!!
+
+End of Mihai's README
+--------------------------------------------------------------------------------------------
 ![Firecracker Logo Title](docs/images/fc_logo_full_white-bg.png)
 
 Our mission is to enable secure, multi-tenant, minimal-overhead execution of

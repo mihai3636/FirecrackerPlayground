@@ -4,7 +4,8 @@
 #[allow(dead_code)]
 mod bindingsMbuf;
 
-mod dpdk_component;
+pub mod client;
+
 
 
 // use std::ffi::CString;
@@ -16,14 +17,9 @@ mod dpdk_component;
 
 
 
-// use bindingsMbuf::{
-//     rte_eal_init, rte_eal_process_type, rte_mbuf, rte_mempool_lookup,
-//     rte_proc_type_t_RTE_PROC_PRIMARY, rte_ring_dequeue_real, rte_ring_lookup,
-// };
-
 pub fn play_winning_sound(name: String) {
     println!("Playing winning sound {}", name);
-    dpdk_component::test_func();
+    client::test_func();
 }
 
 
