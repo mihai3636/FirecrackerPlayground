@@ -135,7 +135,6 @@ pub struct Net {
 
     // Added by Mihai
     tx_channel: Sender<i32>,
-    client: ClientDpdk,
 }
 
 impl Net {
@@ -191,17 +190,10 @@ impl Net {
         
         let (tx_channel, rx_channel): (Sender<i32>, Receiver<i32>) = mpsc::channel();
 
-        //Added by Mihai
-        // std::thread::spawn(move || {
-        //     loop {
-        //         match rx_channel.recv_timeout(std::time::Duration::from_secs(20)) {
-        //             Ok(numar) => { warn!("Received something! Number is: {}\n", numar) },
-        //             Err(_) => { warn!("Nothing received.\n" )}
-        //         };
-        //     }
-        // });
-        let my_client = ClientDpdk::new_with_receiver(rx_channel);
-
+        // Added by Mihai
+        std::thread::spawn(move || {
+            ClientDpdk::new_with_receiver(rx_channel).start_dispatcher()
+        });
 
         Ok(Net {
             id,
@@ -229,7 +221,6 @@ impl Net {
             #[cfg(test)]
             mocks: Mocks::default(),
             tx_channel,
-            client: my_client
         })
     }
 

@@ -6,7 +6,15 @@ mod bindingsMbuf;
 
 pub mod client;
 
+use std::result;
 
+#[derive(Debug)]
+pub enum Error {
+    /// Failed to do rte_eal_init()
+    EalInitFailed(i32),
+}
+
+pub type Result<T> = result::Result<T, Error>;
 
 // use std::ffi::CString;
 // use std::os::raw::c_void;
