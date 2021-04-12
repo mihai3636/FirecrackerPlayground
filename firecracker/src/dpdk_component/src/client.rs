@@ -49,6 +49,7 @@ impl ClientDpdk {
         println!("Message after calling rte_eal_init!");
         if 0 > ret_val {
             warn!("Eroare, nu a mers rte_eal_init.");
+            warn!("Error code: {}", ret_val);
             return Err(Error::EalInitFailed(ret_val));
         } else {
             warn!("Este BAAAA A MERS NENOROCIREA MANCA-V-AS");
