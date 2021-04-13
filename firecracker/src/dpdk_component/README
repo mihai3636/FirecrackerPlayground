@@ -16,7 +16,7 @@ RUSTFLAGS="-lrte_node -lrte_graph -lrte_bpf -lrte_flow_classify -lrte_pipeline -
 
 bindgen command:
 
-bindgen --generate-inline-functions include/static-functions.h -o src/bindingsErrno.rs -- -include rte_config.h -march=native -I/usr/local/include
+bindgen --generate-inline-functions include/static-functions.h -o ./src/bindingsErrno.rs -- -include rte_config.h -march=native -I/usr/local/include
 
 
 Managed to overcome the missing headers by building with this.

@@ -1,7 +1,15 @@
-use crate::bindingsMbuf::{
+// use crate::bindingsMbuf::{
+//     rte_eal_init, rte_eal_process_type, rte_mbuf, rte_mempool_lookup,
+//     rte_proc_type_t_RTE_PROC_PRIMARY, rte_ring_dequeue_real, rte_ring_lookup,
+// };
+
+
+use crate::bindingsErrno::{
     rte_eal_init, rte_eal_process_type, rte_mbuf, rte_mempool_lookup,
     rte_proc_type_t_RTE_PROC_PRIMARY, rte_ring_dequeue_real, rte_ring_lookup,
+    per_lcore__rte_errno
 };
+
 use crate::Result;
 use crate::Error;
 
@@ -48,8 +56,13 @@ impl ClientDpdk {
         let ret_val = unsafe { rte_eal_init(cnt, my_args) };
         println!("Message after calling rte_eal_init!");
         if 0 > ret_val {
+            // let rte_errno = unsafe { per_lcore__rte_errno };
+            // ret_val is not the true errorcode
+            // error code is inside rte_errno
+
             warn!("Eroare, nu a mers rte_eal_init.");
-            warn!("Error code: {}", ret_val);
+            warn!("Error code: {}", unsafe { per_lcore__rte_errno });
+        
             return Err(Error::EalInitFailed(ret_val));
         } else {
             warn!("Este BAAAA A MERS NENOROCIREA MANCA-V-AS");

@@ -7463,7 +7463,7 @@ extern "C" {
 extern "C" {
     pub fn rte_eal_init(
         argc: ::std::os::raw::c_int,
-        argv: *mut *mut ::std::os::raw::c_char,
+        argv: *mut *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {

@@ -1,4 +1,4 @@
-// use std::path::Path;
+use std::path::Path;
 
 fn main() {
 
@@ -9,12 +9,14 @@ fn main() {
     // let path2 = Path::new("/usr/include/x86_64-linux-gnu");
     // let path3 = Path::new("/usr/include/linux");
     // let path4 = Path::new("/usr/include/asm-generic");
-    // let path5 = Path::new("./include");
+    let path5 = Path::new("./include");
 
     let mut builder = cc::Build::new();
     let build = builder
         .file("src/static-functions.c")
-        .flag("-Wno-unused-parameter");
+        .flag("-Wno-unused-parameter")
+        .flag("-fPIC")
+        .include(path5);
         // .flag("-lrte_ring")
         // .flag("-lrte_mempool")
         // .flag("-lrte_mbuf")
