@@ -12926,6 +12926,7 @@ extern "C" {
     pub fn rte_pktmbuf_dump(f: *mut FILE, m: *const rte_mbuf, dump_len: ::std::os::raw::c_uint);
 }
 extern "C" {
+    
     pub static mut per_lcore__rte_errno: ::std::os::raw::c_int;
 }
 extern "C" {
