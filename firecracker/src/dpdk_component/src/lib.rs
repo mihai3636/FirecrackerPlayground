@@ -12,6 +12,8 @@ use std::result;
 pub enum Error {
     /// Failed to do rte_eal_init()
     EalInitFailed(i32),
+    NotSecondaryDpdk,
+    RingLookupFailed,
 }
 
 pub type Result<T> = result::Result<T, Error>;
