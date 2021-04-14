@@ -1,6 +1,7 @@
 Current status of dpdk_component library crate:
 -managed to create a ClientDpdk struct inside the Net struct.
-
+-Removed the CLientDpdk from inside the Net, created it inside a Thread which starts in new_with_tap() from Net struct.
+-Starting rte_eal_init from ClientDpdk
 
 CURRENT README:
 
@@ -18,13 +19,17 @@ bindgen command:
 
 bindgen --generate-inline-functions include/static-functions.h -o src/bindingsErrno.rs -- -include rte_config.h -march=native -I/usr/local/include
 
+Lesson learned:
+- dpdk is going to access different configuration files wheter app is started by root or simple user.
+- dpdk app cannot be started without root privileges if you are using IGB_UIO drivers and you are.
+- visual studio code ssh cannot use SUDO => you cannot start debugging on an app which is using DPDK.
+- overcame this by connecting ssh as ROOT and installing cargo on root.
 
+
+
+OLD:
+_____________________________________________________________________________________________________________________________________-
 Managed to overcome the missing headers by building with this.
-
-
-
-
-
 
 Overcame this using the build command mentioned above.
 Someone also told me to include the "./include" folder and to remove the path to the include folder from .C file.

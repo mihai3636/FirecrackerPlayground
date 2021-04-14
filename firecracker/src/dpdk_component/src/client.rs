@@ -5,12 +5,15 @@ use crate::bindingsMbuf::{
 use crate::Result;
 use crate::Error;
 
+use std::io;
+
 use std::sync::mpsc::Receiver;
-use std::{thread, time};
+// use std::thread;
+use std::time;
 
 use std::ffi::CString;
-use std::os::raw::c_void;
-use std::ptr::null_mut;
+// use std::os::raw::c_void;
+// use std::ptr::null_mut;
 
 use logger::warn;
 
@@ -44,20 +47,22 @@ impl ClientDpdk {
         let my_args = args.as_mut_ptr();
 
         let cnt: i32 = 4;
-        println!("Message before calling rte_eal_init!");
         let ret_val = unsafe { rte_eal_init(cnt, my_args) };
         println!("Message after calling rte_eal_init!");
         if 0 > ret_val {
             warn!("Eroare, nu a mers rte_eal_init.");
-            warn!("Error code: {}", ret_val);
+            warn!("Error message: {:?}", io::Error::last_os_error());
+            // remember, error code is not inside ret_val
+            // it is inside errno
             return Err(Error::EalInitFailed(ret_val));
         } else {
-            warn!("Este BAAAA A MERS NENOROCIREA MANCA-V-AS");
+            warn!("Este BAAAA A MERS!!!");
             return Ok(());
         }
     }
 
     pub fn start_dispatcher(&self) {
+
         self.do_rte_eal_init().expect("Failled rte_eal_init call");
 
         loop {
