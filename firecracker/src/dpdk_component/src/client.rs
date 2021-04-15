@@ -52,10 +52,23 @@ impl ClientDpdk {
         }
     }
 
-    // fn do_rte_mempool_get(&self) -> Result<*mut c_void> {
-        
-    // }
+    /// NOT TESTED
+    /// Calls the rte_mempool_get binding
+    /// Returns address of mempool buffer /object?
+    /// Returns error if function fails.
+    fn do_rte_mempool_get(&self) -> Result<*mut c_void> {
+        let mut my_buffer: *mut c_void = null_mut();
+        let my_buffer_addr: *mut *mut c_void = &mut my_buffer;
 
+        let rez = unsafe { rte_mempool_get_real(self.mempool, my_buffer_addr) };
+        if 0 > rez {
+            return Err(Error::MempoolGetFailed);
+        }
+
+        Ok(my_buffer)
+    }
+
+    /// Calls the rte_ring_lookup binding.
     /// Receives the name of the shared ring and returns a mutable raw pointer to it.
     fn do_rte_ring_lookup(&self, ring_name: &CString) -> Result<*mut rte_ring> {
 
@@ -68,6 +81,7 @@ impl ClientDpdk {
         Ok(my_ring)
     }
 
+    /// Calls the rte_mempool_lookup binding
     /// Receives the name of the shared mempool and returns a mutable raw pointer to it.
     fn do_rte_mempool_lookup(&self, mempool_name: &CString) -> Result<*mut rte_mempool> {
 
