@@ -15,17 +15,10 @@ pub enum Error {
     NotSecondaryDpdk,
     RingLookupFailed,
     MempoolLookupFailed,
+    MempoolGetFailed
 }
 
 pub type Result<T> = result::Result<T, Error>;
-
-// use std::ffi::CString;
-// use std::os::raw::c_void;
-// use std::ptr::null_mut;
-
-// use std::process;
-// use std::{thread, time};
-
 
 
 pub fn play_winning_sound(name: String) {

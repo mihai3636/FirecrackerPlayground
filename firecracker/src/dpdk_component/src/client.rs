@@ -1,7 +1,7 @@
 use crate::bindingsMbuf::{
     rte_eal_init, rte_eal_process_type, rte_mbuf, rte_mempool_lookup,
     rte_proc_type_t_RTE_PROC_PRIMARY, rte_ring_dequeue_real, rte_ring_lookup,
-    rte_ring, rte_mempool
+    rte_ring, rte_mempool, rte_mempool_get_real
 };
 use crate::Result;
 use crate::Error;
@@ -51,6 +51,10 @@ impl ClientDpdk {
             mempool: null_mut(),
         }
     }
+
+    // fn do_rte_mempool_get(&self) -> Result<*mut c_void> {
+        
+    // }
 
     /// Receives the name of the shared ring and returns a mutable raw pointer to it.
     fn do_rte_ring_lookup(&self, ring_name: &CString) -> Result<*mut rte_ring> {
@@ -147,20 +151,20 @@ impl ClientDpdk {
         let mut my_number = 0;
 
         loop {
-            match self.from_firecracker.recv_timeout(time::Duration::from_secs(20)) {
-                Ok(numar) => { warn!("Received something! Number is: {}\n", numar) },
-                Err(_) => { warn!("Nothing received.\n" )}
-            };
-            
-            // match self.from_firecracker.recv() {
-            //     Ok(numar) => {
-            //         warn!("Received something! Number is: {}\n", numar);
-            //         my_number = numar;
-            //     },
-            //     Err(_) => { warn!("Channel closed by sender. No more to receive.\n" )}
+            // match self.from_firecracker.recv_timeout(time::Duration::from_secs(20)) {
+            //     Ok(numar) => { warn!("Received something! Number is: {}\n", numar) },
+            //     Err(_) => { warn!("Nothing received.\n" )}
             // };
+            
+            match self.from_firecracker.recv() {
+                Ok(numar) => {
+                    warn!("Received something! Number is: {}\n", numar);
+                    my_number = numar;
+                },
+                Err(_) => { warn!("Channel closed by sender. No more to receive.\n" )}
+            };
 
-
+            
         }
     }
 }
