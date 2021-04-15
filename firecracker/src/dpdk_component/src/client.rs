@@ -144,11 +144,23 @@ impl ClientDpdk {
         self.attach_to_mempool();
         warn!("Mempool attached success");
 
+        let mut my_number = 0;
+
         loop {
             match self.from_firecracker.recv_timeout(time::Duration::from_secs(20)) {
                 Ok(numar) => { warn!("Received something! Number is: {}\n", numar) },
                 Err(_) => { warn!("Nothing received.\n" )}
             };
+            
+            // match self.from_firecracker.recv() {
+            //     Ok(numar) => {
+            //         warn!("Received something! Number is: {}\n", numar);
+            //         my_number = numar;
+            //     },
+            //     Err(_) => { warn!("Channel closed by sender. No more to receive.\n" )}
+            // };
+
+
         }
     }
 }
