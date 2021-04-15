@@ -14,6 +14,7 @@ pub enum Error {
     EalInitFailed(i32),
     NotSecondaryDpdk,
     RingLookupFailed,
+    MempoolLookupFailed,
 }
 
 pub type Result<T> = result::Result<T, Error>;

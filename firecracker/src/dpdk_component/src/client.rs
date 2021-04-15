@@ -1,7 +1,7 @@
 use crate::bindingsMbuf::{
     rte_eal_init, rte_eal_process_type, rte_mbuf, rte_mempool_lookup,
     rte_proc_type_t_RTE_PROC_PRIMARY, rte_ring_dequeue_real, rte_ring_lookup,
-    rte_ring
+    rte_ring, rte_mempool
 };
 use crate::Result;
 use crate::Error;
@@ -34,6 +34,7 @@ pub struct ClientDpdk {
 
     receive_ring: *mut rte_ring,
     send_ring: *mut rte_ring,
+    mempool: *mut rte_mempool,
 }
 
 impl ClientDpdk {
@@ -47,6 +48,7 @@ impl ClientDpdk {
             mempool_name: CString::new("MSG_POOL").expect("Mempool name failed.\n"),
             receive_ring: null_mut(),
             send_ring: null_mut(),
+            mempool: null_mut(),
         }
     }
 
@@ -62,12 +64,31 @@ impl ClientDpdk {
         Ok(my_ring)
     }
 
-    /// Call rte_ring_lookup for send and receive ring
+    /// Receives the name of the shared mempool and returns a mutable raw pointer to it.
+    fn do_rte_mempool_lookup(&self, mempool_name: &CString) -> Result<*mut rte_mempool> {
+
+        let my_mempool = unsafe { rte_mempool_lookup(mempool_name.as_ptr()) };
+        
+        if my_mempool.is_null() {
+            return Err(Error::MempoolLookupFailed);
+        }
+
+        Ok(my_mempool)
+    }
+
+    /// Call rte_ring_lookup binding for send and receive ring
     /// Panics if any of these fails.
     fn attach_to_rings(&mut self) {
 
         self.receive_ring = self.do_rte_ring_lookup(&self.receive_ring_name).expect("Receive ring lookup failed");
         self.send_ring = self.do_rte_ring_lookup(&self.send_ring_name).expect("Send ring lookup failed");
+    }
+
+    /// Calls rte_mempook_lookup binding.
+    /// Panics if it fails
+    fn attach_to_mempool(&mut self) {
+
+        self.mempool = self.do_rte_mempool_lookup(&self.mempool_name).expect("Mempool lookup failed");
     }
 
 
@@ -113,10 +134,15 @@ impl ClientDpdk {
 
         self.do_rte_eal_init().expect("Failled rte_eal_init call");
         warn!("rte_eal_init success");
+        
         self.check_proc_type().expect("DPDK Process type should be SECONDARY: --proc-type=secondary");
         warn!("process type success");
+        
         self.attach_to_rings();
         warn!("rings attached success");
+
+        self.attach_to_mempool();
+        warn!("Mempool attached success");
 
         loop {
             match self.from_firecracker.recv_timeout(time::Duration::from_secs(20)) {
