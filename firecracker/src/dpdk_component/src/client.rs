@@ -9,7 +9,8 @@ use crate::bindingsMbuf::{
     rte_ring,
     rte_mempool,
     rte_mempool_get_real,
-    rte_ring_enqueue_real
+    rte_ring_enqueue_real,
+    rte_mempool_put_real,
 };
 
 use crate::Result;
@@ -61,6 +62,7 @@ impl ClientDpdk {
         }
     }
 
+
     /// NOT TESTED
     /// Calls the rte_ring_enqueue binding
     /// Returns error if function fails.
@@ -73,6 +75,14 @@ impl ClientDpdk {
         }
 
         Ok(())
+    }
+
+    /// NOT TESTED
+    /// Calls the rte_mempool_put binding
+    /// The binding returns void so the wrapper returns nothing.
+    /// No information about errors. Probably in errno?
+    fn do_rte_mempool_put(&self, obj: *mut c_void) {
+        unsafe { rte_mempool_put_real(self.mempool, obj) };
     }
 
     /// NOT TESTED
