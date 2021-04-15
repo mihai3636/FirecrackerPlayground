@@ -12912,6 +12912,12 @@ extern "C" {
         obj_p: *mut *mut ::std::os::raw::c_void,
     ) -> ::std::os::raw::c_int;
 }
+extern "C" {
+    pub fn rte_mempool_put_real(
+        mp: *mut rte_mempool,
+        obj: *mut ::std::os::raw::c_void,
+    );
+}
 pub type __builtin_va_list = [__va_list_tag; 1usize];
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
