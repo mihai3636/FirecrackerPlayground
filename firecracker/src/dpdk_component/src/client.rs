@@ -109,11 +109,14 @@ impl ClientDpdk {
         }
     }
 
-    pub fn start_dispatcher(&self) {
+    pub fn start_dispatcher(&mut self) {
 
         self.do_rte_eal_init().expect("Failled rte_eal_init call");
+        warn!("rte_eal_init success");
         self.check_proc_type().expect("DPDK Process type should be SECONDARY: --proc-type=secondary");
+        warn!("process type success");
         self.attach_to_rings();
+        warn!("rings attached success");
 
         loop {
             match self.from_firecracker.recv_timeout(time::Duration::from_secs(20)) {
