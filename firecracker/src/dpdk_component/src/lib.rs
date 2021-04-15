@@ -15,7 +15,8 @@ pub enum Error {
     NotSecondaryDpdk,
     RingLookupFailed,
     MempoolLookupFailed,
-    MempoolGetFailed
+    MempoolGetFailed,
+    RingEnqueueFailed
 }
 
 pub type Result<T> = result::Result<T, Error>;

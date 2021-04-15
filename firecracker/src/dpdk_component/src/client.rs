@@ -1,8 +1,17 @@
 use crate::bindingsMbuf::{
-    rte_eal_init, rte_eal_process_type, rte_mbuf, rte_mempool_lookup,
-    rte_proc_type_t_RTE_PROC_PRIMARY, rte_ring_dequeue_real, rte_ring_lookup,
-    rte_ring, rte_mempool, rte_mempool_get_real
+    rte_eal_init,
+    rte_eal_process_type,
+    rte_mbuf,
+    rte_mempool_lookup,
+    rte_proc_type_t_RTE_PROC_PRIMARY,
+    rte_ring_dequeue_real,
+    rte_ring_lookup,
+    rte_ring,
+    rte_mempool,
+    rte_mempool_get_real,
+    rte_ring_enqueue_real
 };
+
 use crate::Result;
 use crate::Error;
 
@@ -50,6 +59,20 @@ impl ClientDpdk {
             send_ring: null_mut(),
             mempool: null_mut(),
         }
+    }
+
+    /// NOT TESTED
+    /// Calls the rte_ring_enqueue binding
+    /// Returns error if function fails.
+    fn do_rte_ring_enqueue(&self, obj: *mut c_void) -> Result<()> {
+        // We are going to enqueue only on the SEND ring.
+
+        let rez = unsafe { rte_ring_enqueue_real(self.send_ring, obj) };
+        if rez != 0 {
+            return Err(Error::RingEnqueueFailed);
+        }
+
+        Ok(())
     }
 
     /// NOT TESTED
