@@ -63,9 +63,8 @@ impl ClientDpdk {
     }
 
 
-    /// NOT TESTED
     /// Calls the rte_ring_enqueue binding
-    /// Returns error if function fails.
+    /// Returns error if function fails. (not enough room in the ring to enqueue)
     fn do_rte_ring_enqueue(&self, obj: *mut c_void) -> Result<()> {
         // We are going to enqueue only on the SEND ring.
 
@@ -85,10 +84,9 @@ impl ClientDpdk {
         unsafe { rte_mempool_put_real(self.mempool, obj) };
     }
 
-    /// NOT TESTED
     /// Calls the rte_mempool_get binding
     /// Returns address of mempool buffer /object?
-    /// Returns error if function fails.
+    /// Returns error if function fails. (no object available from mempool)
     fn do_rte_mempool_get(&self) -> Result<*mut c_void> {
         let mut my_buffer: *mut c_void = null_mut();
         let my_buffer_addr: *mut *mut c_void = &mut my_buffer;
@@ -211,7 +209,27 @@ impl ClientDpdk {
                 Err(_) => { warn!("Channel closed by sender. No more to receive.\n" )}
             };
 
+            // After receiving something on the channel
+            // I want to send it to the primary DPDK
+            // And the primary will send it to hardware NIC
             
+            let mut my_buffer = self.do_rte_mempool_get();
+            while let Err(er) = my_buffer {
+                warn!("rte_mempool_get failed, trying again.");
+                my_buffer = self.do_rte_mempool_get();
+                // it may fail if not enough entries are available.
+            }
+            warn!("rte_mempool_get success");
+            // Let's just send an empty packet for starters.
+            let my_buffer = my_buffer.unwrap();
+
+            let mut res = self.do_rte_ring_enqueue(my_buffer);
+            // it may fail if not enough room in the ring to enqueue
+            while let Err(er) = res {
+                warn!("rte_ring_enqueue failed, trying again.");
+                res = self.do_rte_ring_enqueue(my_buffer);
+            }
+            warn!("rte_ring_enqueue success");
         }
     }
 }

@@ -12,9 +12,11 @@ fn main() {
     // let path5 = Path::new("./include");
 
     let mut builder = cc::Build::new();
+    
     let build = builder
         .file("src/static-functions.c")
-        .flag("-Wno-unused-parameter");
+        .flag("-Wno-unused-parameter")
+        .flag("-mssse3");
         // .flag("-lrte_ring")
         // .flag("-lrte_mempool")
         // .flag("-lrte_mbuf")
