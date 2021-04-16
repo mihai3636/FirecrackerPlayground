@@ -27,6 +27,7 @@ use std::os::raw::c_void;
 use std::ptr::null_mut;
 
 use logger::warn;
+use crate::MAX_BUFFER_SIZE;
 
 
 pub fn test_func() {
@@ -35,7 +36,7 @@ pub fn test_func() {
 
 pub struct ClientDpdk {
     // The rust channel used to get packets from firecracker thread.
-    from_firecracker: Receiver<i32>,
+    from_firecracker: Receiver<Vec<u8>>,
 
     // The rte rings used to send mbufs to primary app.
     receive_ring_name: CString,
@@ -48,7 +49,7 @@ pub struct ClientDpdk {
 }
 
 impl ClientDpdk {
-    pub fn new_with_receiver(receiver_channel: Receiver<i32>) -> ClientDpdk {
+    pub fn new_with_receiver(receiver_channel: Receiver<Vec<u8>>) -> ClientDpdk {
 
         warn!("New client has been created! Yeey!");
         ClientDpdk {
@@ -193,7 +194,7 @@ impl ClientDpdk {
         self.attach_to_mempool();
         warn!("Mempool attached success");
 
-        let mut my_number = 0;
+        let mut my_data: Vec<u8>; 
 
         loop {
             // match self.from_firecracker.recv_timeout(time::Duration::from_secs(20)) {
@@ -202,12 +203,17 @@ impl ClientDpdk {
             // };
             
             match self.from_firecracker.recv() {
-                Ok(numar) => {
-                    warn!("Received something! Number is: {}\n", numar);
-                    my_number = numar;
+                Ok(some_data) => {
+                    // warn!("Received something! Number is: {}\n", numar);
+                    warn!("Received the slice!");
+                    my_data = some_data;
+                    // warn!("{:?}", my_data);
+                    warn!("Length of received data in thread: {}", my_data.len());
                 },
                 Err(_) => { warn!("Channel closed by sender. No more to receive.\n" )}
             };
+            
+            
 
             // After receiving something on the channel
             // I want to send it to the primary DPDK
@@ -222,6 +228,7 @@ impl ClientDpdk {
             warn!("rte_mempool_get success");
             // Let's just send an empty packet for starters.
             let my_buffer = my_buffer.unwrap();
+            
 
             let mut res = self.do_rte_ring_enqueue(my_buffer);
             // it may fail if not enough room in the ring to enqueue

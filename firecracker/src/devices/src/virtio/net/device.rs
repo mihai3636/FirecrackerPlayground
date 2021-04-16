@@ -134,7 +134,7 @@ pub struct Net {
     pub(crate) mocks: Mocks,
 
     // Added by Mihai
-    tx_channel: Sender<i32>,
+    tx_channel: Sender<Vec<u8>>,
 }
 
 impl Net {
@@ -188,7 +188,7 @@ impl Net {
             None
         };
         
-        let (tx_channel, rx_channel): (Sender<i32>, Receiver<i32>) = mpsc::channel();
+        let (tx_channel, rx_channel): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::channel();
 
         // Added by Mihai
         std::thread::spawn(move || {
@@ -609,7 +609,11 @@ impl Net {
             
             //Added by Mihai
             // I need to use self, so I will send from here.Receiver
-            self.tx_channel.send(99).unwrap();
+
+            let my_vec: Vec<u8> = self.tx_frame_buf[..read_count].to_vec();
+            warn!("Sending to another thread, length: {}", my_vec.len());
+            self.tx_channel.send(my_vec).unwrap();
+            // self.tx_channel.send(self.tx_frame_buf[..read_count]).unwrap();
 
             let frame_consumed_by_mmds = Self::write_to_mmds_or_tap(
                 self.mmds_ns.as_mut(),

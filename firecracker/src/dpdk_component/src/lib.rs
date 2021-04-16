@@ -7,6 +7,8 @@ mod bindingsMbuf;
 pub mod client;
 
 use std::result;
+// got this from net virtio::net to avoid package dependency
+const MAX_BUFFER_SIZE: usize = 65562;
 
 #[derive(Debug)]
 pub enum Error {
