@@ -8,6 +8,13 @@ Current status of dpdk_component library crate:
 -attach to mempool using rte_mempool_lookup working
 -rte_mempool_get, rte_ring_enqueue_working
 
+-sending the packet from Fc thread to the DPDK thread
+-sending empty mbuf from DPDK thread to DPDK primary. [MILESTONE]
+
+-printing some data about the mbuf struct.
+
+
+
 MILESTONE: Able to send empty mbuf from secondary to primary
 
 Next Goal: Send some real packets inside the mbuf to NIC.
@@ -23,6 +30,27 @@ RUSTFLAGS="-lrte_eal -lrte_mempool -lrte_mbuf -lrte_ring -C target-feature=-crt-
 
 (this one takes too long)
 RUSTFLAGS="-lrte_node -lrte_graph -lrte_bpf -lrte_flow_classify -lrte_pipeline -lrte_table -lrte_port -lrte_fib -lrte_ipsec -lrte_vhost -lrte_stack -lrte_security -lrte_sched -lrte_reorder -lrte_rib -lrte_regexdev -lrte_rawdev -lrte_pdump -lrte_power -lrte_member -lrte_lpm -lrte_latencystats -lrte_kni -lrte_jobstats -lrte_ip_frag -lrte_gso -lrte_gro -lrte_eventdev -lrte_efd -lrte_distributor -lrte_cryptodev -lrte_compressdev -lrte_cfgfile -lrte_bitratestats -lrte_bbdev -lrte_acl -lrte_timer -lrte_hash -lrte_metrics -lrte_cmdline -lrte_pci -lrte_ethdev -lrte_meter -lrte_net -lrte_mbuf -lrte_mempool -lrte_rcu -lrte_ring -lrte_eal -lrte_telemetry -lrte_kvargs -C target-feature=-crt-static" cargo build --target=x86_64-unknown-linux-gnu
+
+
+OLD:
+
+info learned about the mbuf:
+
+buf_addr + data_off is where the packet should stay
+buf_len is the size of the segment (segment is the place where the packet should be put)
+
+printed info:
+
+2021-04-19T17:37:22.771167727 [anonymous-instance:-] rte_ring_enqueue success
+2021-04-19T17:37:23.022076211 [anonymous-instance:main] Sending to another thread, length: 102
+2021-04-19T17:37:23.022217091 [anonymous-instance:-] Received the slice!
+2021-04-19T17:37:23.022278893 [anonymous-instance:-] Length of received data in thread: 102
+2021-04-19T17:37:23.022300126 [anonymous-instance:-] rte_mempool_get success
+2021-04-19T17:37:23.022316482 [anonymous-instance:-] Length of segment buffer: 2176
+2021-04-19T17:37:23.022332020 [anonymous-instance:-] Data offset: 128
+2021-04-19T17:37:23.022347121 [anonymous-instance:-] Address of buf_addr: 0x100846000
+2021-04-19T17:37:23.022362612 [anonymous-instance:-] Address of buf_addr + data_off: 0x100846080
+2021-04-19T17:37:23.022377878 [anonymous-instance:-] 
 
 
 OLD:

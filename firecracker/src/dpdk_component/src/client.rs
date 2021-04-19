@@ -210,7 +210,7 @@ impl ClientDpdk {
                     // warn!("{:?}", my_data);
                     warn!("Length of received data in thread: {}", my_data.len());
                 },
-                Err(_) => { warn!("Channel closed by sender. No more to receive.\n" )}
+                Err(_) => { warn!("Channel closed by sender. No more to receive." )}
             };
             
             
@@ -228,6 +228,18 @@ impl ClientDpdk {
             warn!("rte_mempool_get success");
             // Let's just send an empty packet for starters.
             let my_buffer = my_buffer.unwrap();
+            let my_buffer_struct: *mut rte_mbuf = my_buffer as (*mut rte_mbuf);
+            
+            unsafe {
+                warn!("Length of segment buffer: {}", (*my_buffer_struct).buf_len);
+                warn!("Data offset: {}", (*my_buffer_struct).data_off);
+                let buf_addr: *mut c_void = (*my_buffer_struct).buf_addr;
+                let real_buf_addr = buf_addr.offset((*my_buffer_struct).data_off as isize);
+                warn!("Address of buf_addr: {:?}", buf_addr);
+                warn!("Address of buf_addr + data_off: {:?}", real_buf_addr);
+                warn!("\n");
+            };
+            
             
 
             let mut res = self.do_rte_ring_enqueue(my_buffer);
