@@ -13,6 +13,10 @@ Current status of dpdk_component library crate:
 
 -printing some data about the mbuf struct.
 
+-managed to get the packet in the primary DPDK
+next step is to check if the format is ok for further sending on internet.
+
+
 
 
 MILESTONE: Able to send empty mbuf from secondary to primary
@@ -38,6 +42,7 @@ info learned about the mbuf:
 
 buf_addr + data_off is where the packet should stay
 buf_len is the size of the segment (segment is the place where the packet should be put)
+data_len is amount of data in the segment (how many bytes the packet has)
 
 printed info:
 

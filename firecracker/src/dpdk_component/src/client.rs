@@ -24,7 +24,7 @@ use std::time;
 
 use std::ffi::CString;
 use std::os::raw::c_void;
-use std::ptr::null_mut;
+use std::ptr::{copy, null_mut};
 
 use logger::warn;
 use crate::MAX_BUFFER_SIZE;
@@ -194,7 +194,7 @@ impl ClientDpdk {
         self.attach_to_mempool();
         warn!("Mempool attached success");
 
-        let mut my_data: Vec<u8>; 
+        let mut my_data: Vec<u8> = Vec::new(); 
 
         loop {
             // match self.from_firecracker.recv_timeout(time::Duration::from_secs(20)) {
@@ -207,7 +207,7 @@ impl ClientDpdk {
                     // warn!("Received something! Number is: {}\n", numar);
                     warn!("Received the slice!");
                     my_data = some_data;
-                    // warn!("{:?}", my_data);
+                    warn!("{:?}", my_data);
                     warn!("Length of received data in thread: {}", my_data.len());
                 },
                 Err(_) => { warn!("Channel closed by sender. No more to receive." )}
@@ -230,6 +230,15 @@ impl ClientDpdk {
             let my_buffer = my_buffer.unwrap();
             let my_buffer_struct: *mut rte_mbuf = my_buffer as (*mut rte_mbuf);
             
+           unsafe {
+                // the packet buffer, not the mbuf
+                let buf_addr: *mut c_void = (*my_buffer_struct).buf_addr;
+                let mut real_buf_addr = buf_addr.offset((*my_buffer_struct).data_off as isize);
+                //try to copy the Vec<u8> inside the mbuf
+                copy(my_data.as_mut_ptr(), real_buf_addr as *mut u8, my_data.len());
+                (*my_buffer_struct).data_len = my_data.len() as u16;
+           };
+            
             unsafe {
                 warn!("Length of segment buffer: {}", (*my_buffer_struct).buf_len);
                 warn!("Data offset: {}", (*my_buffer_struct).data_off);
@@ -239,8 +248,7 @@ impl ClientDpdk {
                 warn!("Address of buf_addr + data_off: {:?}", real_buf_addr);
                 warn!("\n");
             };
-            
-            
+
 
             let mut res = self.do_rte_ring_enqueue(my_buffer);
             // it may fail if not enough room in the ring to enqueue
