@@ -237,6 +237,8 @@ impl ClientDpdk {
                 //try to copy the Vec<u8> inside the mbuf
                 copy(my_data.as_mut_ptr(), real_buf_addr as *mut u8, my_data.len());
                 (*my_buffer_struct).data_len = my_data.len() as u16;
+                (*my_buffer_struct).pkt_len = my_data.len() as u32;
+                (*my_buffer_struct).nb_segs = 1; 
            };
             
             unsafe {

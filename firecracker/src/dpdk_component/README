@@ -16,6 +16,11 @@ Current status of dpdk_component library crate:
 -managed to get the packet in the primary DPDK
 next step is to check if the format is ok for further sending on internet.
 
+update: as it is right now, if i do rte_eth_tx_burst in primary, the packet is not seen with tcpdump
+
+- after setting fields data_len, pkt_len, nb_segs the packet is seen in tcpdump but not recognized as something useful.
+
+
 
 
 
