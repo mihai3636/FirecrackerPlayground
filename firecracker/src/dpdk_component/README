@@ -20,13 +20,20 @@ update: as it is right now, if i do rte_eth_tx_burst in primary, the packet is n
 
 - after setting fields data_len, pkt_len, nb_segs the packet is seen in tcpdump but not recognized as something useful.
 
+- FIXED the recognition inside tcpdump / wireshark by sending the packet from Guest Memory starting with offset 12.
+There seems to be an issue / bug with these 12 starting bytes.
+Inter Frame Gap related.
 
+Goal "Send some real packets inside the mbuf to NIC." Achieved.
+WARNING: FIND OUT WHY THOSE 12 BYTES ARE BUGGY.
 
 
 
 MILESTONE: Able to send empty mbuf from secondary to primary
 
-Next Goal: Send some real packets inside the mbuf to NIC.
+MILESTONE: Send some real packets inside the mbuf to NIC.
+
+Next Goal: Handle packet reception from primary to secondary.
 
 
 CURRENT README:
@@ -39,6 +46,19 @@ RUSTFLAGS="-lrte_eal -lrte_mempool -lrte_mbuf -lrte_ring -C target-feature=-crt-
 
 (this one takes too long)
 RUSTFLAGS="-lrte_node -lrte_graph -lrte_bpf -lrte_flow_classify -lrte_pipeline -lrte_table -lrte_port -lrte_fib -lrte_ipsec -lrte_vhost -lrte_stack -lrte_security -lrte_sched -lrte_reorder -lrte_rib -lrte_regexdev -lrte_rawdev -lrte_pdump -lrte_power -lrte_member -lrte_lpm -lrte_latencystats -lrte_kni -lrte_jobstats -lrte_ip_frag -lrte_gso -lrte_gro -lrte_eventdev -lrte_efd -lrte_distributor -lrte_cryptodev -lrte_compressdev -lrte_cfgfile -lrte_bitratestats -lrte_bbdev -lrte_acl -lrte_timer -lrte_hash -lrte_metrics -lrte_cmdline -lrte_pci -lrte_ethdev -lrte_meter -lrte_net -lrte_mbuf -lrte_mempool -lrte_rcu -lrte_ring -lrte_eal -lrte_telemetry -lrte_kvargs -C target-feature=-crt-static" cargo build --target=x86_64-unknown-linux-gnu
+
+
+OLD:
+
+info learned about packets:
+
+there is some thing called Inter Frame Gap which I am handling in a wrong way.
+If I get the packet from Guest Memory start with the 12th byte, the packet is
+then recognized inside wireshark / tcpdump.
+
+Otherwise there will be 12 bytes more at the starting of the packet which will
+be seen as trash by wireshark.
+
 
 
 OLD:

@@ -64,6 +64,34 @@ impl ClientDpdk {
     }
 
 
+    fn print_hex_vec(&self, my_vec: &Vec<u8>) {
+        let mut output = " ".to_string();
+        for number in my_vec.iter() {
+            output = format!("{} {:02x}", output, number);
+            // warn!("{:02x} ");
+        }
+
+        warn!("{}", output);
+    }
+
+    /// UNSAFE FUNC
+    /// Puts a vector inside the data buffer of mbuf structure
+    /// First param: a pointer to struct rte_mbuf
+    /// Second param: a pointer to your vec. It has to be Vec<u8>
+    /// Size of your vector
+    fn put_vec_into_buf(&self, struct_pt: *mut rte_mbuf, my_vec: *mut u8, my_vec_size: usize) {
+
+        unsafe {
+            let buf_addr: *mut c_void = (*struct_pt).buf_addr;
+            let mut real_buf_addr = buf_addr.offset((*struct_pt).data_off as isize);
+
+            copy(my_vec, real_buf_addr as *mut u8, my_vec_size);
+            (*struct_pt).data_len =  my_vec_size as u16;
+            (*struct_pt).pkt_len = my_vec_size as u32;
+            (*struct_pt).nb_segs = 1;
+        }
+    }
+
     /// Calls the rte_ring_enqueue binding
     /// Returns error if function fails. (not enough room in the ring to enqueue)
     fn do_rte_ring_enqueue(&self, obj: *mut c_void) -> Result<()> {
@@ -205,60 +233,52 @@ impl ClientDpdk {
             match self.from_firecracker.recv() {
                 Ok(some_data) => {
                     // warn!("Received something! Number is: {}\n", numar);
-                    warn!("Received the slice!");
+                    // warn!("Received the slice!");
                     my_data = some_data;
-                    warn!("{:?}", my_data);
-                    warn!("Length of received data in thread: {}", my_data.len());
+                    self.print_hex_vec(&my_data);
+                    // warn!("{:?}", my_data);
+                    // warn!("Length of received data in thread: {}", my_data.len());
                 },
                 Err(_) => { warn!("Channel closed by sender. No more to receive." )}
             };
-            
-            
 
             // After receiving something on the channel
             // I want to send it to the primary DPDK
             // And the primary will send it to hardware NIC
             
-            let mut my_buffer = self.do_rte_mempool_get();
-            while let Err(er) = my_buffer {
+            let mut my_mbuf = self.do_rte_mempool_get();
+            while let Err(er) = my_mbuf {
                 warn!("rte_mempool_get failed, trying again.");
-                my_buffer = self.do_rte_mempool_get();
+                my_mbuf = self.do_rte_mempool_get();
                 // it may fail if not enough entries are available.
             }
-            warn!("rte_mempool_get success");
+    
             // Let's just send an empty packet for starters.
-            let my_buffer = my_buffer.unwrap();
-            let my_buffer_struct: *mut rte_mbuf = my_buffer as (*mut rte_mbuf);
+            let my_mbuf = my_mbuf.unwrap();
+            let my_mbuf_struct: *mut rte_mbuf = my_mbuf as (*mut rte_mbuf);
             
-           unsafe {
-                // the packet buffer, not the mbuf
-                let buf_addr: *mut c_void = (*my_buffer_struct).buf_addr;
-                let mut real_buf_addr = buf_addr.offset((*my_buffer_struct).data_off as isize);
-                //try to copy the Vec<u8> inside the mbuf
-                copy(my_data.as_mut_ptr(), real_buf_addr as *mut u8, my_data.len());
-                (*my_buffer_struct).data_len = my_data.len() as u16;
-                (*my_buffer_struct).pkt_len = my_data.len() as u32;
-                (*my_buffer_struct).nb_segs = 1; 
-           };
-            
-            unsafe {
-                warn!("Length of segment buffer: {}", (*my_buffer_struct).buf_len);
-                warn!("Data offset: {}", (*my_buffer_struct).data_off);
-                let buf_addr: *mut c_void = (*my_buffer_struct).buf_addr;
-                let real_buf_addr = buf_addr.offset((*my_buffer_struct).data_off as isize);
-                warn!("Address of buf_addr: {:?}", buf_addr);
-                warn!("Address of buf_addr + data_off: {:?}", real_buf_addr);
-                warn!("\n");
-            };
+            // let mut test_vec: Vec<u8> = vec![0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf];
+            self.put_vec_into_buf(my_mbuf_struct, my_data.as_mut_ptr(), my_data.len());
 
+            // self.put_vec_into_buf(my_mbuf_struct, test_vec.as_mut_ptr(), test_vec.len());
 
-            let mut res = self.do_rte_ring_enqueue(my_buffer);
+            let mut res = self.do_rte_ring_enqueue(my_mbuf);
             // it may fail if not enough room in the ring to enqueue
             while let Err(er) = res {
                 warn!("rte_ring_enqueue failed, trying again.");
-                res = self.do_rte_ring_enqueue(my_buffer);
+                res = self.do_rte_ring_enqueue(my_mbuf);
             }
             warn!("rte_ring_enqueue success");
         }
     }
 }
+
+// unsafe {
+//     warn!("Length of segment buffer: {}", (*my_buffer_struct).buf_len);
+//     warn!("Data offset: {}", (*my_buffer_struct).data_off);
+//     let buf_addr: *mut c_void = (*my_buffer_struct).buf_addr;
+//     let real_buf_addr = buf_addr.offset((*my_buffer_struct).data_off as isize);
+//     warn!("Address of buf_addr: {:?}", buf_addr);
+//     warn!("Address of buf_addr + data_off: {:?}", real_buf_addr);
+//     warn!("\n");
+// };

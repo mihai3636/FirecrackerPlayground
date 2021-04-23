@@ -610,7 +610,7 @@ impl Net {
             //Added by Mihai
             // I need to use self, so I will send from here.Receiver
 
-            let my_vec: Vec<u8> = self.tx_frame_buf[..read_count].to_vec();
+            let my_vec: Vec<u8> = self.tx_frame_buf[12..read_count].to_vec();
             warn!("Sending to another thread, length: {}", my_vec.len());
             self.tx_channel.send(my_vec).unwrap();
             // self.tx_channel.send(self.tx_frame_buf[..read_count]).unwrap();

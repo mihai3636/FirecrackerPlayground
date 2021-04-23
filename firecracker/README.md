@@ -17,7 +17,8 @@ on virtual machine:
 (only one time) sudo ./createNetwork.sh
 
 on host:
-(on the visual code remote terminal) rm -f /tmp/firecracker.socket
+(on the visual code remote terminal) 
+rm -f /tmp/firecracker.socket
 start debugging from visual code using the existing launch.json, for more info check launch.json
 
 on virtual machine:
