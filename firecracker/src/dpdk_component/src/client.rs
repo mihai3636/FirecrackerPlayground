@@ -11,6 +11,7 @@ use crate::bindingsMbuf::{
     rte_mempool_get_real,
     rte_ring_enqueue_real,
     rte_mempool_put_real,
+    rte_pktmbuf_alloc_real,
 };
 
 use crate::Result;
@@ -111,6 +112,20 @@ impl ClientDpdk {
     /// No information about errors. Probably in errno?
     fn do_rte_mempool_put(&self, obj: *mut c_void) {
         unsafe { rte_mempool_put_real(self.mempool, obj) };
+    }
+
+    /// NOT TESTED
+    /// Similar to mempool_get, INVESTIGATE DIFFERENCE.
+    /// I'm hoping this func will eliminated the IFG bug.
+    fn do_rte_pktmbuf_alloc(&self) -> Result<*mut rte_mbuf> {
+        let mut my_mbuf: *mut rte_mbuf;
+
+        my_mbuf = unsafe { rte_pktmbuf_alloc_real(self.mempool) };
+        if my_mbuf.is_null() {
+            return Err(Error::PktmbufAllocFailed);
+        }
+
+        Ok(my_mbuf)
     }
 
     /// Calls the rte_mempool_get binding
@@ -246,27 +261,37 @@ impl ClientDpdk {
             // I want to send it to the primary DPDK
             // And the primary will send it to hardware NIC
             
-            let mut my_mbuf = self.do_rte_mempool_get();
+            // let mut my_mbuf = self.do_rte_mempool_get();
+            // while let Err(er) = my_mbuf {
+            //     warn!("rte_mempool_get failed, trying again.");
+            //     my_mbuf = self.do_rte_mempool_get();
+            //     // it may fail if not enough entries are available.
+            // }
+
+            let mut my_mbuf = self.do_rte_pktmbuf_alloc();
             while let Err(er) = my_mbuf {
-                warn!("rte_mempool_get failed, trying again.");
-                my_mbuf = self.do_rte_mempool_get();
-                // it may fail if not enough entries are available.
+                warn!("rte_pktmbuf_alloc failed, trying again.");
+                my_mbuf = self.do_rte_pktmbuf_alloc();
             }
     
             // Let's just send an empty packet for starters.
-            let my_mbuf = my_mbuf.unwrap();
-            let my_mbuf_struct: *mut rte_mbuf = my_mbuf as (*mut rte_mbuf);
+
+            // To uncomment
+            // let my_mbuf = my_mbuf.unwrap();
+            
+            // let my_mbuf_struct: *mut rte_mbuf = my_mbuf as (*mut rte_mbuf);
+            let my_mbuf_struct = my_mbuf.unwrap();
             
             // let mut test_vec: Vec<u8> = vec![0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf];
             self.put_vec_into_buf(my_mbuf_struct, my_data.as_mut_ptr(), my_data.len());
 
             // self.put_vec_into_buf(my_mbuf_struct, test_vec.as_mut_ptr(), test_vec.len());
 
-            let mut res = self.do_rte_ring_enqueue(my_mbuf);
+            let mut res = self.do_rte_ring_enqueue(my_mbuf_struct as *mut c_void);
             // it may fail if not enough room in the ring to enqueue
             while let Err(er) = res {
                 warn!("rte_ring_enqueue failed, trying again.");
-                res = self.do_rte_ring_enqueue(my_mbuf);
+                res = self.do_rte_ring_enqueue(my_mbuf_struct as *mut c_void);
             }
             warn!("rte_ring_enqueue success");
         }

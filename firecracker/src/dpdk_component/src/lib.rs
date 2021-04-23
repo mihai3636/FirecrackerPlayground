@@ -18,7 +18,8 @@ pub enum Error {
     RingLookupFailed,
     MempoolLookupFailed,
     MempoolGetFailed,
-    RingEnqueueFailed
+    RingEnqueueFailed,
+    PktmbufAllocFailed,
 }
 
 pub type Result<T> = result::Result<T, Error>;
