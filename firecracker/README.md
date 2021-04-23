@@ -17,7 +17,8 @@ on virtual machine:
 (only one time) sudo ./createNetwork.sh
 
 on host:
-(on the visual code remote terminal) 
+(on the visual code remote terminal)
+
 rm -f /tmp/firecracker.socket
 start debugging from visual code using the existing launch.json, for more info check launch.json
 
@@ -29,6 +30,11 @@ on the firecracker terminal:
 ip addr add 172.16.0.2/24 dev eth0
 ip link set eth0 up
 ip route add default via 172.16.0.1 dev eth0
+
+OR (for br1 communication)
+
+ip addr add 10.0.0.2/24 dev eth0
+ip link set eth0 up
 
 
 INFO about cargo build command inside the dpdk_component README!!!!!!!!!!!!!!!!!!!!!!

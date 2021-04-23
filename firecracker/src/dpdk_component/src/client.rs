@@ -208,6 +208,38 @@ impl ClientDpdk {
         }
     }
 
+    /// Receives a Vec<u8> as param which represent the packet.
+    /// Puts the packet inside an mbuf
+    /// Then puts the mbuf on a shared ring
+    fn send_packet_to_primary(&self, my_data: &mut Vec<u8>) {
+        
+        let mut my_mbuf = self.do_rte_mempool_get();
+        while let Err(er) = my_mbuf {
+            warn!("rte_mempool_get failed, trying again.");
+            my_mbuf = self.do_rte_mempool_get();
+            // it may fail if not enough entries are available.
+        }
+
+        // Put the packet into the mbuf
+        let my_mbuf = my_mbuf.unwrap();
+        let my_mbuf_struct: *mut rte_mbuf = my_mbuf as (*mut rte_mbuf);
+        
+        self.put_vec_into_buf(my_mbuf_struct, my_data.as_mut_ptr(), my_data.len());
+
+        // let mut test_vec: Vec<u8> = vec![0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf];
+        // self.put_vec_into_buf(my_mbuf_struct, test_vec.as_mut_ptr(), test_vec.len());
+
+        // Now we put the mbuf into the shared ring
+        // So the primary will get it.
+        let mut res = self.do_rte_ring_enqueue(my_mbuf);
+        // it may fail if not enough room in the ring to enqueue
+        while let Err(er) = res {
+            warn!("rte_ring_enqueue failed, trying again.");
+            res = self.do_rte_ring_enqueue(my_mbuf);
+        }
+        warn!("rte_ring_enqueue success");
+    }
+
     pub fn start_dispatcher(&mut self) {
 
         self.do_rte_eal_init().expect("Failled rte_eal_init call");
@@ -225,50 +257,18 @@ impl ClientDpdk {
         let mut my_data: Vec<u8> = Vec::new(); 
 
         loop {
-            // match self.from_firecracker.recv_timeout(time::Duration::from_secs(20)) {
-            //     Ok(numar) => { warn!("Received something! Number is: {}\n", numar) },
-            //     Err(_) => { warn!("Nothing received.\n" )}
-            // };
-            
+
             match self.from_firecracker.recv() {
                 Ok(some_data) => {
-                    // warn!("Received something! Number is: {}\n", numar);
-                    // warn!("Received the slice!");
+                    // After receiving something on the channel
+                    // I want to send it to the primary DPDK
+                    // And the primary will send it to hardware NIC
                     my_data = some_data;
                     self.print_hex_vec(&my_data);
-                    // warn!("{:?}", my_data);
-                    // warn!("Length of received data in thread: {}", my_data.len());
+                    self.send_packet_to_primary(&mut my_data);
                 },
                 Err(_) => { warn!("Channel closed by sender. No more to receive." )}
             };
-
-            // After receiving something on the channel
-            // I want to send it to the primary DPDK
-            // And the primary will send it to hardware NIC
-            
-            let mut my_mbuf = self.do_rte_mempool_get();
-            while let Err(er) = my_mbuf {
-                warn!("rte_mempool_get failed, trying again.");
-                my_mbuf = self.do_rte_mempool_get();
-                // it may fail if not enough entries are available.
-            }
-    
-            // Let's just send an empty packet for starters.
-            let my_mbuf = my_mbuf.unwrap();
-            let my_mbuf_struct: *mut rte_mbuf = my_mbuf as (*mut rte_mbuf);
-            
-            // let mut test_vec: Vec<u8> = vec![0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf];
-            self.put_vec_into_buf(my_mbuf_struct, my_data.as_mut_ptr(), my_data.len());
-
-            // self.put_vec_into_buf(my_mbuf_struct, test_vec.as_mut_ptr(), test_vec.len());
-
-            let mut res = self.do_rte_ring_enqueue(my_mbuf);
-            // it may fail if not enough room in the ring to enqueue
-            while let Err(er) = res {
-                warn!("rte_ring_enqueue failed, trying again.");
-                res = self.do_rte_ring_enqueue(my_mbuf);
-            }
-            warn!("rte_ring_enqueue success");
         }
     }
 }
