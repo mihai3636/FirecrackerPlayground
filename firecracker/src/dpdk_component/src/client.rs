@@ -18,7 +18,7 @@ use crate::Error;
 
 use std::io;
 
-use std::sync::mpsc::Receiver;
+use std::sync::mpsc::{Receiver, channel, TryRecvError};
 // use std::thread;
 use std::time;
 
@@ -90,6 +90,20 @@ impl ClientDpdk {
             (*struct_pt).pkt_len = my_vec_size as u32;
             (*struct_pt).nb_segs = 1;
         }
+    }
+
+    fn do_rte_ring_dequeue(&self, obj_p: *mut *mut c_void) -> Result<()> {
+
+        let rez = unsafe { rte_ring_dequeue_real(self.receive_ring, obj_p) };
+        // Returns
+
+        // 0: Success, objects dequeued.
+        // -ENOENT: Not enough entries in the ring to dequeue, no object is dequeued.
+        if 0 > rez {
+            return Err(Error::RingDequeueFailed);
+        }
+
+        Ok(())
     }
 
     /// Calls the rte_ring_enqueue binding
@@ -257,8 +271,9 @@ impl ClientDpdk {
         let mut my_data: Vec<u8> = Vec::new(); 
 
         loop {
+            // We are breaking the loop if Firecracker thread kills the channel.
 
-            match self.from_firecracker.recv() {
+            match self.from_firecracker.try_recv() {
                 Ok(some_data) => {
                     // After receiving something on the channel
                     // I want to send it to the primary DPDK
@@ -267,8 +282,25 @@ impl ClientDpdk {
                     self.print_hex_vec(&my_data);
                     self.send_packet_to_primary(&mut my_data);
                 },
-                Err(_) => { warn!("Channel closed by sender. No more to receive." )}
+                Err(TryRecvError::Disconnected) => {
+                    warn!("Channel closed by sender. No more to receive." );
+                    break;
+                },
+                Err(TryRecvError::Empty) => {
+                    ()
+                },
             };
+            // NOT TESTED
+            // Reaching here means something was received and sent to primary, or not.
+
+            // Now we attempt to get an mbuf from shared ring.
+            let mut mbuf: *mut c_void = null_mut();
+            let mut mbuf_ptr: *mut *mut c_void = &mut mbuf;
+
+            if let Ok(_) = self.do_rte_ring_dequeue(mbuf_ptr) {
+                warn!("Mbuf Received from PRIMARY.");
+                self.do_rte_mempool_put(mbuf);
+            }
         }
     }
 }
