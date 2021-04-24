@@ -38,6 +38,16 @@ Merg pe logica la receive cand se triggeruieste tap_fd si mai schimb in functie 
 
 CHANGELOG:
 
+
+
+WARNING:
+
+DO NOT get rid of deferred frame completely!
+a deferred frame could be because of the rate limiter
+OR because there are not enough RX queues available.
+
+check pub fn process_tap_rx_event(&mut self)
+-------------------------------------------------------------------
 in event_handler.rs
 
 Added the event_dpdk_secondary to the interest_list
