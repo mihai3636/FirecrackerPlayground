@@ -10,6 +10,7 @@ build = "build.rs"
 
 [dependencies]
 logger = { path = "../logger" }
+utils = { path = "../utils" }
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }

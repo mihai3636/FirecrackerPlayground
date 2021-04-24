@@ -13,12 +13,14 @@ use crate::bindingsMbuf::{
     rte_mempool_put_real,
 };
 
+use utils::eventfd::EventFd;
+
 use crate::Result;
 use crate::Error;
 
 use std::io;
 
-use std::sync::mpsc::{Receiver, channel, TryRecvError};
+use std::sync::mpsc::{Receiver, channel, TryRecvError, Sender};
 use std::time;
 
 use std::ffi::CString;
@@ -36,6 +38,7 @@ pub fn test_func() {
 pub struct ClientDpdk {
     // The rust channel used to get packets from firecracker thread.
     from_firecracker: Receiver<Vec<u8>>,
+    to_firecracker: Sender<Vec<u8>>,
 
     // The rte rings used to send mbufs to primary app.
     receive_ring_name: CString,
@@ -45,20 +48,26 @@ pub struct ClientDpdk {
     receive_ring: *mut rte_ring,
     send_ring: *mut rte_ring,
     mempool: *mut rte_mempool,
+
+    event_dpdk_secondary: EventFd,
 }
 
 impl ClientDpdk {
-    pub fn new_with_receiver(receiver_channel: Receiver<Vec<u8>>) -> ClientDpdk {
+    pub fn new_with_receiver(receiver_channel: Receiver<Vec<u8>>,
+        sender_channel: Sender<Vec<u8>>,
+        event_dpdk_secondary: EventFd) -> ClientDpdk {
 
         warn!("New client has been created! Yeey!");
         ClientDpdk {
             from_firecracker: receiver_channel,
+            to_firecracker: sender_channel,
             receive_ring_name: CString::new("PRI_2_SEC").expect("Receive ring name failed.\n"),
             send_ring_name: CString::new("SEC_2_PRI").expect("Send ring name failed.\n"),
             mempool_name: CString::new("MSG_POOL").expect("Mempool name failed.\n"),
             receive_ring: null_mut(),
             send_ring: null_mut(),
             mempool: null_mut(),
+            event_dpdk_secondary: event_dpdk_secondary,
         }
     }
 

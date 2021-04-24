@@ -134,7 +134,12 @@ pub struct Net {
     pub(crate) mocks: Mocks,
 
     // Added by Mihai
+    //This one sends data to secondary dpdk
     tx_channel: Sender<Vec<u8>>,
+    //This one receives data from secondary dpdk
+    rx_channel: Receiver<Vec<u8>>,
+    //Using this eventFd to know when secondary dpdk has data to send to net device.
+    event_secondary_dpdk: EventFd,
 }
 
 impl Net {
@@ -187,12 +192,16 @@ impl Net {
         } else {
             None
         };
-        
-        let (tx_channel, rx_channel): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::channel();
 
+        let (tx_channel, rx_channel): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::channel();
+        let (tx_to_guest, rx_from_secondary): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::channel();
+
+        let event_secondary_dpdk = EventFd::new(libc::EFD_NONBLOCK).map_err(Error::EventFd)?;
+
+        let event_backup = event_secondary_dpdk.try_clone().expect("Couldn't duplicate the eventfd_dpdk_secondary!");
         // Added by Mihai
         std::thread::spawn(move || {
-            ClientDpdk::new_with_receiver(rx_channel).start_dispatcher()
+            ClientDpdk::new_with_receiver(rx_channel, tx_to_guest, event_backup).start_dispatcher()
         });
 
         Ok(Net {
@@ -221,6 +230,8 @@ impl Net {
             #[cfg(test)]
             mocks: Mocks::default(),
             tx_channel,
+            rx_channel: rx_from_secondary,
+            event_secondary_dpdk: event_secondary_dpdk,
         })
     }
 

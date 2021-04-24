@@ -24,3 +24,27 @@ read cycle started by event on tap_fd.
 So the Guest is checking "just to be sure" that there is nothing left there.
 
 I am not planning on using the rate limiting mechanism so it shouldn't be an issue to me.
+
+Idee:
+
+Fac un nou EventFd pe care il adaug in interest_list.
+Dau trigger pe event_fd-ul asta din DPDK Secondary atunci cand primesc pachet (s-ar putea sa dau prea multe triggere aici, WARNING)
+
+Mai fac un channel prin care trimit date de la Secondary catre Net Device.
+
+In event_handler.rs:
+Schimb tap_fd cu noul event_fd
+Merg pe logica la receive cand se triggeruieste tap_fd si mai schimb in functie de necesitati.
+
+CHANGELOG:
+
+in client.rs
+
+Added sender_channel and event_dpdk_secondary
+as constructor param and inside the ClientDpdk struct def.
+
+in device.rs
+
+Created a new channel and passed sending end to DpdkClient,
+Created a new eventFd and passed it to DpdkClient
+Compiling working.
