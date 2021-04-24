@@ -1,5 +1,8 @@
 Readme by Mihai
 
+On this branch I will add the logic to send packets from Secondary DPDK to Guest VM inside Firecracker.
+
+
 Found out why there are two interrupts for RX.
 
 One interrupt is on the tap_fd descriptor.
