@@ -27,13 +27,21 @@ Inter Frame Gap related.
 Goal "Send some real packets inside the mbuf to NIC." Achieved.
 WARNING: FIND OUT WHY THOSE 12 BYTES ARE BUGGY.
 
+-Received mbuf from primary using shared ring.
+-Got the buffer from the mbuf and put it into a Vec<u8>
+-Printed the Vec<u8> and packet is ok.
+
+Goal "Handle packet reception from primary to secondary." Achieved.
+
 
 
 MILESTONE: Able to send empty mbuf from secondary to primary
 
 MILESTONE: Send some real packets inside the mbuf to NIC.
 
-Next Goal: Handle packet reception from primary to secondary.
+MILESTONE: Handle packet reception from primary to secondary.
+
+Next Goal: Send packet from secondary to Guest.
 
 
 CURRENT README:

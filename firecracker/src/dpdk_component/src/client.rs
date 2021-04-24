@@ -19,7 +19,6 @@ use crate::Error;
 use std::io;
 
 use std::sync::mpsc::{Receiver, channel, TryRecvError};
-// use std::thread;
 use std::time;
 
 use std::ffi::CString;
@@ -79,7 +78,7 @@ impl ClientDpdk {
     /// First param: a pointer to struct rte_mbuf
     /// Second param: a pointer to your vec. It has to be Vec<u8>
     /// Size of your vector
-    fn put_vec_into_buf(&self, struct_pt: *mut rte_mbuf, my_vec: *mut u8, my_vec_size: usize) {
+    fn put_vec_into_mbuf(&self, struct_pt: *mut rte_mbuf, my_vec: *mut u8, my_vec_size: usize) {
 
         unsafe {
             let buf_addr: *mut c_void = (*struct_pt).buf_addr;
@@ -90,6 +89,31 @@ impl ClientDpdk {
             (*struct_pt).pkt_len = my_vec_size as u32;
             (*struct_pt).nb_segs = 1;
         }
+    }
+
+    /// UNSAFE FUNC
+    /// Receives am mbuf struct as param.
+    /// Copies its data buffer into a Vec<u8>
+    /// Returns the new Vec<u8>
+    fn get_vec_from_mbuf(&self, struct_pt: *mut c_void) -> Vec<u8> {
+
+        let mbuf_ptr: *mut rte_mbuf;
+        let mut rez_vec: Vec<u8>;
+        let mut data_buf_size: usize;
+
+        mbuf_ptr = struct_pt as *mut rte_mbuf;
+        unsafe {
+            let mut data_buf_addr =(*mbuf_ptr).buf_addr;
+            let mut real_data_buf_addr = data_buf_addr.offset((*mbuf_ptr).data_off as isize);
+
+            data_buf_size = (*mbuf_ptr).data_len as usize;            
+            rez_vec = Vec::with_capacity(data_buf_size);
+            copy(real_data_buf_addr as *const u8, rez_vec.as_mut_ptr() as *mut u8, data_buf_size);
+            // Very important to set len!
+            rez_vec.set_len(data_buf_size);
+        }
+
+        rez_vec
     }
 
     fn do_rte_ring_dequeue(&self, obj_p: *mut *mut c_void) -> Result<()> {
@@ -238,7 +262,7 @@ impl ClientDpdk {
         let my_mbuf = my_mbuf.unwrap();
         let my_mbuf_struct: *mut rte_mbuf = my_mbuf as (*mut rte_mbuf);
         
-        self.put_vec_into_buf(my_mbuf_struct, my_data.as_mut_ptr(), my_data.len());
+        self.put_vec_into_mbuf(my_mbuf_struct, my_data.as_mut_ptr(), my_data.len());
 
         // let mut test_vec: Vec<u8> = vec![0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf];
         // self.put_vec_into_buf(my_mbuf_struct, test_vec.as_mut_ptr(), test_vec.len());
@@ -290,15 +314,20 @@ impl ClientDpdk {
                     ()
                 },
             };
-            // NOT TESTED
-            // Reaching here means something was received and sent to primary, or not.
+
+            // Reaching here means something was received from channel and sent to primary, or not.
 
             // Now we attempt to get an mbuf from shared ring.
             let mut mbuf: *mut c_void = null_mut();
             let mut mbuf_ptr: *mut *mut c_void = &mut mbuf;
 
+            // Getting mbuf from shared ring
             if let Ok(_) = self.do_rte_ring_dequeue(mbuf_ptr) {
                 warn!("Mbuf Received from PRIMARY.");
+                
+                // Enters here only if mbuf was waiting in the queue
+                let received_vec: Vec<u8> = self.get_vec_from_mbuf(mbuf);
+                self.print_hex_vec(&received_vec);
                 self.do_rte_mempool_put(mbuf);
             }
         }
