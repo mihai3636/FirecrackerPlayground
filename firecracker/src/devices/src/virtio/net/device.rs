@@ -139,7 +139,7 @@ pub struct Net {
     //This one receives data from secondary dpdk
     rx_channel: Receiver<Vec<u8>>,
     //Using this eventFd to know when secondary dpdk has data to send to net device.
-    event_secondary_dpdk: EventFd,
+    pub(crate) event_secondary_dpdk: EventFd,
 }
 
 impl Net {
@@ -233,6 +233,12 @@ impl Net {
             rx_channel: rx_from_secondary,
             event_secondary_dpdk: event_secondary_dpdk,
         })
+    }
+
+    /// Added by Mihai
+    /// Dummy func to check if triggering events is working.
+    pub fn dpdk_secondary_handler(&self) {
+        warn!("Yo yo yo, the DPDK secondary TRIGGERED the event y'all been waiting for.");
     }
 
     /// Provides the ID of this net device.

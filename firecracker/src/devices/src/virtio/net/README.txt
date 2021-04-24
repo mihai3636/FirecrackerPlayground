@@ -38,6 +38,18 @@ Merg pe logica la receive cand se triggeruieste tap_fd si mai schimb in functie 
 
 CHANGELOG:
 
+in event_handler.rs
+
+Added the event_dpdk_secondary to the interest_list
+Added the event_dpdk_secondary to the process "match". Calls a dummy function
+
+in device.rs
+Added a dummy handler for event_dpdk_secondary to see if the event works.
+
+in dpdk_component::client.rs
+Triggering the event_dpdk_secondary when packet can be sent from secondary to Net Device
+
+-----------------------------------------------------------------------
 in client.rs
 
 Added sender_channel and event_dpdk_secondary

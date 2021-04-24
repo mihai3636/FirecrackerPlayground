@@ -27,7 +27,7 @@ use std::ffi::CString;
 use std::os::raw::c_void;
 use std::ptr::{copy, null_mut};
 
-use logger::warn;
+use logger::{warn, error};
 use crate::MAX_BUFFER_SIZE;
 
 
@@ -70,7 +70,6 @@ impl ClientDpdk {
             event_dpdk_secondary: event_dpdk_secondary,
         }
     }
-
 
     fn print_hex_vec(&self, my_vec: &Vec<u8>) {
         let mut output = " ".to_string();
@@ -338,6 +337,11 @@ impl ClientDpdk {
                 let received_vec: Vec<u8> = self.get_vec_from_mbuf(mbuf);
                 self.print_hex_vec(&received_vec);
                 self.do_rte_mempool_put(mbuf);
+
+                //try to trigger in interrupt for Net device.
+                self.event_dpdk_secondary.write(1).map_err(|e| {
+                    error!("Failed to signal the Net device from DpdkClient {:?}", e);
+                });
             }
         }
     }

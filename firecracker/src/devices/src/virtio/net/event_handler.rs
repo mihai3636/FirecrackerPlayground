@@ -60,6 +60,8 @@ impl Subscriber for Net {
         }
 
         if self.is_activated() {
+            // Added by Mihai
+            let dpdk_secondary = self.event_secondary_dpdk.as_raw_fd();
             let virtq_rx_ev_fd = self.queue_evts[RX_INDEX].as_raw_fd();
             let virtq_tx_ev_fd = self.queue_evts[TX_INDEX].as_raw_fd();
             let rx_rate_limiter_fd = self.rx_rate_limiter.as_raw_fd();
@@ -69,6 +71,8 @@ impl Subscriber for Net {
 
             // Looks better than C style if/else if/else.
             match source {
+                //Added by Mihai
+                _ if source == dpdk_secondary => self.dpdk_secondary_handler(),
                 _ if source == virtq_rx_ev_fd => self.process_rx_queue_event(),
                 _ if source == tap_fd => self.process_tap_rx_event(),
                 _ if source == virtq_tx_ev_fd => self.process_tx_queue_event(),
@@ -102,6 +106,10 @@ impl Subscriber for Net {
                 EpollEvent::new(
                     EventSet::IN | EventSet::EDGE_TRIGGERED,
                     self.tap.as_raw_fd() as u64,
+                ),
+                EpollEvent::new(
+                    EventSet::IN | EventSet::EDGE_TRIGGERED,
+                    self.event_secondary_dpdk.as_raw_fd() as u64,
                 ),
             ]
         } else {
