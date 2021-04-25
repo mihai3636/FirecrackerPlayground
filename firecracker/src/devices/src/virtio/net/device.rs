@@ -492,13 +492,12 @@ impl Net {
     /// Replacement for read_from_mmds_or_tap
     /// Reads the Vec<u8> from secondary using the Secondary to FC channel.
     fn read_from_secondary(&mut self) -> result::Result<usize, DeviceError> {
-        warn!("Read from secondary called");
         //Try to read non-blocking
         match self.rx_channel.try_recv() {
             Ok(some_data) => {
-                warn!("Got data from try_recv!");
                 // some_data is Vec<u8>
                 let length = some_data.len();
+                warn!("Reading from SECONDARY. Size: {}", length);
                 // put the received packet into the rx_frame_buf
                 unsafe {
                     std::ptr::copy(some_data.as_ptr(), self.rx_frame_buf.as_mut_ptr(), length)
@@ -510,7 +509,7 @@ impl Net {
                 return Err(DeviceError::SecondaryClosed);
             },
             Err(TryRecvError::Empty) => {
-                warn!("Read nothing from secondary!");
+                warn!("Reading from SECONDARY EMPTY");
                 return Err(DeviceError::SecondaryEmpty);
             },
         };
@@ -695,7 +694,7 @@ impl Net {
             // I need to use self, so I will send from here.Receiver
 
             let my_vec: Vec<u8> = self.tx_frame_buf[12..read_count].to_vec();
-            warn!("Sending to another thread, length: {}", my_vec.len());
+            warn!("Sending to SECONDARY, length: {}", my_vec.len());
             self.tx_channel.send(my_vec).unwrap();
 
             // Removed by Mihai - no longer sending on the TAP interface.
@@ -780,7 +779,6 @@ impl Net {
     }
 
     pub fn process_tap_rx_event(&mut self) {
-        warn!("Process tap rx event called!");
         let mem = match self.device_state {
             DeviceState::Activated(ref mem) => mem,
             // This should never happen, it's been already validated in the event handler.

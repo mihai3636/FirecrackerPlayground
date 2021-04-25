@@ -38,6 +38,18 @@ Merg pe logica la receive cand se triggeruieste tap_fd si mai schimb in functie 
 
 CHANGELOG:
 
+Still not solve GSO error.
+search for gso in firecracker repository
+found something in virtio_gen -> src -> virtio_net.rs
+Also check the tests in tap.rs, I think you should put a vnet header before the packet.
+
+PING 10.0.0.1 (10.0.0.1): 56 data bytes
+[   36.922204] eth0: bad gso: type: 252, size: 256
+[   37.942333] eth0: bad gso: type: 252, size: 256
+[   38.954425] eth0: bad gso: type: 252, size: 256
+
+---------------------------------------------------------------
+
 Added logic to read from secondary instead of reading from tap.
 Getting error when using ping: bad gso, type: 252, size: 256
 

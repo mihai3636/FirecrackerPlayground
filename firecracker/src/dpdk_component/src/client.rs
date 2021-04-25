@@ -331,14 +331,17 @@ impl ClientDpdk {
 
             // Getting mbuf from shared ring
             if let Ok(_) = self.do_rte_ring_dequeue(mbuf_ptr) {
-                warn!("DEQUEUE success.");
                 
                 // Enters here only if mbuf was waiting in the queue
-                let received_vec: Vec<u8> = self.get_vec_from_mbuf(mbuf);
+                let mut received_vec: Vec<u8> = self.get_vec_from_mbuf(mbuf);
+
+                received_vec.resize(received_vec.len() - 18, 0);
+
                 self.print_hex_vec(&received_vec);
                 self.do_rte_mempool_put(mbuf);
+                warn!("DEQUEUE success. Size: {}", received_vec.len());
 
-
+                
                 if let Err(er) = self.to_firecracker.send(received_vec) {
                     warn!("ERROR: Send to firecracker failed.\n");
                 }
