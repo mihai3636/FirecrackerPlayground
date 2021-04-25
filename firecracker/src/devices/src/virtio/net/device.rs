@@ -270,6 +270,9 @@ impl Net {
     }
 
     fn signal_rx_used_queue(&mut self) -> result::Result<(), DeviceError> {
+
+        // Info added by Mihai
+        // This flag is set to true after successfully writing the packet on Guest at least once.
         if self.rx_deferred_irqs {
             return self.signal_used_queue();
         }
@@ -277,39 +280,52 @@ impl Net {
         Ok(())
     }
 
+    // Info by Mihai: confusing func name, it copies packet to guest memory!
     // Attempts to copy a single frame into the guest if there is enough
     // rate limiting budget.
     // Returns true on successful frame delivery.
     fn rate_limited_rx_single_frame(&mut self) -> bool {
+
+        // Removed by Mihai
         // If limiter.consume() fails it means there is no more TokenType::Ops
         // budget and rate limiting is in effect.
-        if !self.rx_rate_limiter.consume(1, TokenType::Ops) {
-            METRICS.net.rx_rate_limiter_throttled.inc();
-            return false;
-        }
+        // if !self.rx_rate_limiter.consume(1, TokenType::Ops) {
+        //     METRICS.net.rx_rate_limiter_throttled.inc();
+        //     return false;
+        // }
+        
+        // Removed by Mihai
         // If limiter.consume() fails it means there is no more TokenType::Bytes
         // budget and rate limiting is in effect.
-        if !self
-            .rx_rate_limiter
-            .consume(self.rx_bytes_read as u64, TokenType::Bytes)
-        {
-            // revert the OPS consume()
-            self.rx_rate_limiter.manual_replenish(1, TokenType::Ops);
-            METRICS.net.rx_rate_limiter_throttled.inc();
-            return false;
-        }
+        // if !self
+        //     .rx_rate_limiter
+        //     .consume(self.rx_bytes_read as u64, TokenType::Bytes)
+        // {
+        //     // revert the OPS consume()
+        //     self.rx_rate_limiter.manual_replenish(1, TokenType::Ops);
+        //     METRICS.net.rx_rate_limiter_throttled.inc();
+        //     return false;
+        // }
+        
 
         // Attempt frame delivery.
+        // Info by Mihai
+        // If return is ok, then self.rx_deferred_irqs is set to TRUE.
         let success = self.write_frame_to_guest();
 
+        //Removed by Mihai
         // Undo the tokens consumption if guest delivery failed.
-        if !success {
-            // revert the OPS consume()
-            self.rx_rate_limiter.manual_replenish(1, TokenType::Ops);
-            // revert the BYTES consume()
-            self.rx_rate_limiter
-                .manual_replenish(self.rx_bytes_read as u64, TokenType::Bytes);
-        }
+        // if !success {
+        //     // revert the OPS consume()
+        //     self.rx_rate_limiter.manual_replenish(1, TokenType::Ops);
+        //     // revert the BYTES consume()
+        //     self.rx_rate_limiter
+        //         .manual_replenish(self.rx_bytes_read as u64, TokenType::Bytes);
+        // }
+
+        // Info by Mihai
+        // Only way this could return FALSE is if write_frame_to_guest fails with
+        // Empty Queue or Add Used Error!
         success
     }
 
@@ -468,17 +484,18 @@ impl Net {
 
     // We currently prioritize packets from the MMDS over regular network packets.
     fn read_from_mmds_or_tap(&mut self) -> Result<usize> {
-        if let Some(ns) = self.mmds_ns.as_mut() {
-            if let Some(len) =
-                ns.write_next_frame(frame_bytes_from_buf_mut(&mut self.rx_frame_buf)?)
-            {
-                let len = len.get();
-                METRICS.mmds.tx_frames.inc();
-                METRICS.mmds.tx_bytes.add(len);
-                init_vnet_hdr(&mut self.rx_frame_buf);
-                return Ok(vnet_hdr_len() + len);
-            }
-        }
+        //Removed by Mihai - MMDS stuff removed.
+        // if let Some(ns) = self.mmds_ns.as_mut() {
+        //     if let Some(len) =
+        //         ns.write_next_frame(frame_bytes_from_buf_mut(&mut self.rx_frame_buf)?)
+        //     {
+        //         let len = len.get();
+        //         METRICS.mmds.tx_frames.inc();
+        //         METRICS.mmds.tx_bytes.add(len);
+        //         init_vnet_hdr(&mut self.rx_frame_buf);
+        //         return Ok(vnet_hdr_len() + len);
+        //     }
+        // }
 
         self.read_tap().map_err(Error::IO)
     }
@@ -491,6 +508,8 @@ impl Net {
                     self.rx_bytes_read = count;
                     METRICS.net.rx_count.inc();
                     if !self.rate_limited_rx_single_frame() {
+                        // Info by Mihai
+                        // Gets here only if write to guest fails with EmptyQueue or AddUsed
                         self.rx_deferred_frame = true;
                         break;
                     }
@@ -532,6 +551,9 @@ impl Net {
     }
 
     fn resume_rx(&mut self) -> result::Result<(), DeviceError> {
+        // Info added by Mihai
+        // The only reason I could have a deferred frame after removing rate limiter is because of
+        // Empty Queue error or AddUsed error.
         if self.rx_deferred_frame {
             self.handle_deferred_frame()
         } else {
@@ -690,13 +712,23 @@ impl Net {
             error!("Failed to get rx queue event: {:?}", e);
             METRICS.net.event_fails.inc();
         } else {
-            // If the limiter is not blocked, resume the receiving of bytes.
-            if !self.rx_rate_limiter.is_blocked() {
-                self.resume_rx().unwrap_or_else(report_net_event_fail);
-            } else {
-                METRICS.net.rx_rate_limiter_throttled.inc();
-            }
+            // Added by Mihai - removed the rate limiter check.
+            self.resume_rx().unwrap_or_else(report_net_event_fail);
         }
+
+        // Removed by Mihai
+        // if let Err(e) = self.queue_evts[RX_INDEX].read() {
+        //     // rate limiters present but with _very high_ allowed rate
+        //     error!("Failed to get rx queue event: {:?}", e);
+        //     METRICS.net.event_fails.inc();
+        // } else {
+        //     // If the limiter is not blocked, resume the receiving of bytes.
+        //     if !self.rx_rate_limiter.is_blocked() {
+        //         self.resume_rx().unwrap_or_else(report_net_event_fail);
+        //     } else {
+        //         METRICS.net.rx_rate_limiter_throttled.inc();
+        //     }
+        // }
     }
 
     pub fn process_tap_rx_event(&mut self) {
@@ -717,10 +749,11 @@ impl Net {
         }
 
         // While limiter is blocked, don't process any more incoming.
-        if self.rx_rate_limiter.is_blocked() {
-            METRICS.net.rx_rate_limiter_throttled.inc();
-            return;
-        }
+        // Removed by Mihai
+        // if self.rx_rate_limiter.is_blocked() {
+        //     METRICS.net.rx_rate_limiter_throttled.inc();
+        //     return;
+        // }
 
         if self.rx_deferred_frame
         // Process a deferred frame first if available. Don't read from tap again
