@@ -38,7 +38,7 @@ use virtio_gen::virtio_net::{
 use vm_memory::{ByteValued, Bytes, GuestAddress, GuestMemoryError, GuestMemoryMmap};
 
 // added by Mihai
-use std::sync::mpsc::{Sender, Receiver};
+use std::sync::mpsc::{Sender, Receiver, TryRecvError};
 use std::sync::mpsc;
 use dpdk_component::client::*;
 
@@ -233,6 +233,12 @@ impl Net {
             rx_channel: rx_from_secondary,
             event_secondary_dpdk: event_secondary_dpdk,
         })
+    }
+
+    /// Added by Mihai
+    /// Checking if still receiving interrupts on tap.
+    pub fn tap_dummy_handler(&self) {
+        warn!("This should no longer be called AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
     }
 
     /// Added by Mihai
@@ -482,6 +488,34 @@ impl Net {
         Ok(false)
     }
 
+    /// Added by Mihai
+    /// Replacement for read_from_mmds_or_tap
+    /// Reads the Vec<u8> from secondary using the Secondary to FC channel.
+    fn read_from_secondary(&mut self) -> result::Result<usize, DeviceError> {
+        warn!("Read from secondary called");
+        //Try to read non-blocking
+        match self.rx_channel.try_recv() {
+            Ok(some_data) => {
+                warn!("Got data from try_recv!");
+                // some_data is Vec<u8>
+                let length = some_data.len();
+                // put the received packet into the rx_frame_buf
+                unsafe {
+                    std::ptr::copy(some_data.as_ptr(), self.rx_frame_buf.as_mut_ptr(), length)
+                };
+                return Ok(length);
+            },
+            Err(TryRecvError::Disconnected) => {
+                warn!("Secondary to Firecracker channel has been closed by Secondary. ERROR" );
+                return Err(DeviceError::SecondaryClosed);
+            },
+            Err(TryRecvError::Empty) => {
+                warn!("Read nothing from secondary!");
+                return Err(DeviceError::SecondaryEmpty);
+            },
+        };
+    }
+
     // We currently prioritize packets from the MMDS over regular network packets.
     fn read_from_mmds_or_tap(&mut self) -> Result<usize> {
         //Removed by Mihai - MMDS stuff removed.
@@ -496,14 +530,14 @@ impl Net {
         //         return Ok(vnet_hdr_len() + len);
         //     }
         // }
-
+    
         self.read_tap().map_err(Error::IO)
     }
 
     fn process_rx(&mut self) -> result::Result<(), DeviceError> {
         // Read as many frames as possible.
         loop {
-            match self.read_from_mmds_or_tap() {
+            match self.read_from_secondary() {
                 Ok(count) => {
                     self.rx_bytes_read = count;
                     METRICS.net.rx_count.inc();
@@ -514,19 +548,30 @@ impl Net {
                         break;
                     }
                 }
-                Err(Error::IO(e)) => {
-                    // The tap device is non-blocking, so any error aside from EAGAIN is
-                    // unexpected.
-                    match e.raw_os_error() {
-                        Some(err) if err == EAGAIN => (),
-                        _ => {
-                            error!("Failed to read tap: {:?}", e);
-                            METRICS.net.tap_read_fails.inc();
-                            return Err(DeviceError::FailedReadTap);
-                        }
-                    };
+                // If the channel was empty then break
+                Err(DeviceError::SecondaryEmpty) => {
                     break;
                 }
+                // If the channel was closed report as error. 
+                Err(DeviceError::SecondaryClosed) => {
+                    error!("Failed to read secondary because secondary closed.");
+                    METRICS.net.tap_read_fails.inc();
+                    return Err(DeviceError::FailedReadTap);
+                }
+                // Removed by Mihai
+                // Err(Error::IO(e)) => {
+                //     // The tap device is non-blocking, so any error aside from EAGAIN is
+                //     // unexpected.
+                //     match e.raw_os_error() {
+                //         Some(err) if err == EAGAIN => (),
+                //         _ => {
+                //             error!("Failed to read tap: {:?}", e);
+                //             METRICS.net.tap_read_fails.inc();
+                //             return Err(DeviceError::FailedReadTap);
+                //         }
+                //     };
+                //     break;
+                // }
                 Err(e) => {
                     error!("Spurious error in network RX: {:?}", e);
                 }
@@ -652,20 +697,21 @@ impl Net {
             let my_vec: Vec<u8> = self.tx_frame_buf[12..read_count].to_vec();
             warn!("Sending to another thread, length: {}", my_vec.len());
             self.tx_channel.send(my_vec).unwrap();
-            // self.tx_channel.send(self.tx_frame_buf[..read_count]).unwrap();
 
-            let frame_consumed_by_mmds = Self::write_to_mmds_or_tap(
-                self.mmds_ns.as_mut(),
-                &mut self.tx_rate_limiter,
-                &self.tx_frame_buf[..read_count],
-                &mut self.tap,
-                self.guest_mac,
-            )
-            .unwrap_or_else(|_| false);
-            if frame_consumed_by_mmds && !self.rx_deferred_frame {
-                // MMDS consumed this frame/request, let's also try to process the response.
-                process_rx_for_mmds = true;
-            }
+            // Removed by Mihai - no longer sending on the TAP interface.
+            // let frame_consumed_by_mmds = Self::write_to_mmds_or_tap(
+            //     self.mmds_ns.as_mut(),
+            //     &mut self.tx_rate_limiter,
+            //     &self.tx_frame_buf[..read_count],
+            //     &mut self.tap,
+            //     self.guest_mac,
+            // )
+            // .unwrap_or_else(|_| false);
+
+            // if frame_consumed_by_mmds && !self.rx_deferred_frame {
+            //     // MMDS consumed this frame/request, let's also try to process the response.
+            //     process_rx_for_mmds = true;
+            // }
 
             tx_queue
                 .add_used(mem, head_index, 0)
@@ -679,12 +725,14 @@ impl Net {
             METRICS.net.no_tx_avail_buffer.inc();
         }
 
+        Ok(())
+        // Removed by Mihai
         // An incoming frame for the MMDS may trigger the transmission of a new message.
-        if process_rx_for_mmds {
-            self.process_rx()
-        } else {
-            Ok(())
-        }
+        // if process_rx_for_mmds {
+        //     self.process_rx()
+        // } else {
+        //     Ok(())
+        // }
     }
 
     /// Updates the parameters for the rate limiters
@@ -715,7 +763,7 @@ impl Net {
             // Added by Mihai - removed the rate limiter check.
             self.resume_rx().unwrap_or_else(report_net_event_fail);
         }
-
+        
         // Removed by Mihai
         // if let Err(e) = self.queue_evts[RX_INDEX].read() {
         //     // rate limiters present but with _very high_ allowed rate
@@ -732,6 +780,7 @@ impl Net {
     }
 
     pub fn process_tap_rx_event(&mut self) {
+        warn!("Process tap rx event called!");
         let mem = match self.device_state {
             DeviceState::Activated(ref mem) => mem,
             // This should never happen, it's been already validated in the event handler.

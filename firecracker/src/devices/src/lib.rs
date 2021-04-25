@@ -43,4 +43,8 @@ pub enum Error {
     MalformedDescriptor,
     /// Error during queue processing.
     QueueError(QueueError),
+    // No more data to read from secondary channel
+    SecondaryEmpty,
+    // Secondary Channel has been closed by Secondary
+    SecondaryClosed,
 }

@@ -72,7 +72,7 @@ impl Subscriber for Net {
             // Looks better than C style if/else if/else.
             match source {
                 //Added by Mihai
-                _ if source == dpdk_secondary => self.dpdk_secondary_handler(),
+                _ if source == dpdk_secondary => self.process_tap_rx_event(),
                 _ if source == virtq_rx_ev_fd => self.process_rx_queue_event(),
                 _ if source == tap_fd => self.process_tap_rx_event(),
                 _ if source == virtq_tx_ev_fd => self.process_tx_queue_event(),

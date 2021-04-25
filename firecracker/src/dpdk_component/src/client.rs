@@ -283,7 +283,7 @@ impl ClientDpdk {
             warn!("rte_ring_enqueue failed, trying again.");
             res = self.do_rte_ring_enqueue(my_mbuf);
         }
-        warn!("rte_ring_enqueue success");
+        warn!("ENQUEUE success");
     }
 
     pub fn start_dispatcher(&mut self) {
@@ -331,12 +331,17 @@ impl ClientDpdk {
 
             // Getting mbuf from shared ring
             if let Ok(_) = self.do_rte_ring_dequeue(mbuf_ptr) {
-                warn!("Mbuf Received from PRIMARY.");
+                warn!("DEQUEUE success.");
                 
                 // Enters here only if mbuf was waiting in the queue
                 let received_vec: Vec<u8> = self.get_vec_from_mbuf(mbuf);
                 self.print_hex_vec(&received_vec);
                 self.do_rte_mempool_put(mbuf);
+
+
+                if let Err(er) = self.to_firecracker.send(received_vec) {
+                    warn!("ERROR: Send to firecracker failed.\n");
+                }
 
                 //try to trigger in interrupt for Net device.
                 self.event_dpdk_secondary.write(1).map_err(|e| {

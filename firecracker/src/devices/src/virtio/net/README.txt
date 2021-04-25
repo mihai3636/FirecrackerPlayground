@@ -38,6 +38,10 @@ Merg pe logica la receive cand se triggeruieste tap_fd si mai schimb in functie 
 
 CHANGELOG:
 
+Added logic to read from secondary instead of reading from tap.
+Getting error when using ping: bad gso, type: 252, size: 256
+
+--------------------------------------------------------------------
 Removed the rate limiting logic for receive packet interrupts.
 Commented it out. ("Removed by Mihai")
 Additional info at ("Info by Mihai")
