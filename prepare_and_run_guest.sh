@@ -2,6 +2,6 @@
 ./set_guest_kernel.sh
 sleep 1
 ./prepareGuestNetwork.sh
-sleep 1
+sleep 6
 ./start_guest.sh
 
