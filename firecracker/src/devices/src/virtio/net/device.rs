@@ -498,11 +498,15 @@ impl Net {
                 // some_data is Vec<u8>
                 let length = some_data.len();
                 warn!("Reading from SECONDARY. Size: {}", length);
+                // init the vnet header first
+                init_vnet_hdr(&mut self.rx_frame_buf);
+                let mut ptr_packet: *mut u8 = unsafe { self.rx_frame_buf.as_mut_ptr().offset(vnet_hdr_len() as isize) };
+
                 // put the received packet into the rx_frame_buf
                 unsafe {
-                    std::ptr::copy(some_data.as_ptr(), self.rx_frame_buf.as_mut_ptr(), length)
+                    std::ptr::copy(some_data.as_ptr(), ptr_packet, length)
                 };
-                return Ok(length);
+                return Ok(length + vnet_hdr_len());
             },
             Err(TryRecvError::Disconnected) => {
                 warn!("Secondary to Firecracker channel has been closed by Secondary. ERROR" );

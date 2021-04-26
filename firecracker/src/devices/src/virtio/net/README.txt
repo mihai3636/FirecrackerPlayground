@@ -38,6 +38,12 @@ Merg pe logica la receive cand se triggeruieste tap_fd si mai schimb in functie 
 
 CHANGELOG:
 
+
+Packets are flowing both in and out of the Guest using the DPDK interface now.
+Solved the GSO error by adding a vnet header.
+Used the existing init functions for vnet header, the bytes are all set to 0.
+
+-------------------------------------------------------------------------------------------
 Still not solve GSO error.
 search for gso in firecracker repository
 found something in virtio_gen -> src -> virtio_net.rs

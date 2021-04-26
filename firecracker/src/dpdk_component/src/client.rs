@@ -335,7 +335,7 @@ impl ClientDpdk {
                 // Enters here only if mbuf was waiting in the queue
                 let mut received_vec: Vec<u8> = self.get_vec_from_mbuf(mbuf);
 
-                received_vec.resize(received_vec.len() - 18, 0);
+                received_vec.resize(received_vec.len(), 0);
 
                 self.print_hex_vec(&received_vec);
                 self.do_rte_mempool_put(mbuf);
