@@ -497,7 +497,7 @@ impl Net {
             Ok(some_data) => {
                 // some_data is Vec<u8>
                 let length = some_data.len();
-                warn!("Reading from SECONDARY. Size: {}", length);
+                // warn!("Reading from SECONDARY. Size: {}", length);
                 // init the vnet header first
                 init_vnet_hdr(&mut self.rx_frame_buf);
                 let mut ptr_packet: *mut u8 = unsafe { self.rx_frame_buf.as_mut_ptr().offset(vnet_hdr_len() as isize) };
@@ -513,7 +513,7 @@ impl Net {
                 return Err(DeviceError::SecondaryClosed);
             },
             Err(TryRecvError::Empty) => {
-                warn!("Reading from SECONDARY EMPTY");
+                // warn!("Reading from SECONDARY EMPTY");
                 return Err(DeviceError::SecondaryEmpty);
             },
         };
@@ -698,7 +698,7 @@ impl Net {
             // I need to use self, so I will send from here.Receiver
 
             let my_vec: Vec<u8> = self.tx_frame_buf[12..read_count].to_vec();
-            warn!("Sending to SECONDARY, length: {}", my_vec.len());
+            // warn!("Sending to SECONDARY, length: {}", my_vec.len());
             self.tx_channel.send(my_vec).unwrap();
 
             // Removed by Mihai - no longer sending on the TAP interface.

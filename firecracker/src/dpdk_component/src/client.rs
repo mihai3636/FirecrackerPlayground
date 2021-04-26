@@ -283,7 +283,7 @@ impl ClientDpdk {
             warn!("rte_ring_enqueue failed, trying again.");
             res = self.do_rte_ring_enqueue(my_mbuf);
         }
-        warn!("ENQUEUE success");
+        // warn!("ENQUEUE success");
     }
 
     pub fn start_dispatcher(&mut self) {
@@ -311,7 +311,7 @@ impl ClientDpdk {
                     // I want to send it to the primary DPDK
                     // And the primary will send it to hardware NIC
                     my_data = some_data;
-                    self.print_hex_vec(&my_data);
+                    // self.print_hex_vec(&my_data);
                     self.send_packet_to_primary(&mut my_data);
                 },
                 Err(TryRecvError::Disconnected) => {
@@ -337,9 +337,9 @@ impl ClientDpdk {
 
                 received_vec.resize(received_vec.len(), 0);
 
-                self.print_hex_vec(&received_vec);
+                // self.print_hex_vec(&received_vec);
                 self.do_rte_mempool_put(mbuf);
-                warn!("DEQUEUE success. Size: {}", received_vec.len());
+                // warn!("DEQUEUE success. Size: {}", received_vec.len());
 
                 
                 if let Err(er) = self.to_firecracker.send(received_vec) {
