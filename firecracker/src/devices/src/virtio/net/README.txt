@@ -15,6 +15,14 @@ If it is stopped by the rate limiter, the flag
 self.rx_deferred_frame
 is set to true and the whole reading from tap stops.
 
+UPDATE:
+
+WARNING:
+
+DO NOT get rid of deferred frame completely!
+a deferred frame could be because of the rate limiter
+OR because there are not enough RX queues available.
+
 Second interrupt is on the self.queue_evts[RX_INDEX].as_raw_fd()
 descriptor.
 This one is triggered by the Guest I assume and it does so in order
