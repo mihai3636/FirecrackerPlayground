@@ -1,4 +1,4 @@
-rootfs_path=$(pwd)"/filesystem_image/hello-rootfs.ext4"
+rootfs_path=$(pwd)"/filesystem_image/build-alpine-rootfs/rootfs.ext4"
 curl --unix-socket /tmp/firecracker.socket -i \
   -X PUT 'http://localhost/drives/rootfs' \
   -H 'Accept: application/json'           \
