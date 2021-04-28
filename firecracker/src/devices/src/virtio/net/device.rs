@@ -50,6 +50,19 @@ enum FrontendError {
     ReadOnlyDescriptor,
 }
 
+/// Added by Mihai
+/// COpy of func from DpdkClient
+/// TO DELETE
+fn print_hex_vec(my_vec: &Vec<u8>) {
+    let mut output = " ".to_string();
+    for number in my_vec.iter() {
+        output = format!("{} {:02x}", output, number);
+        // warn!("{:02x} ");
+    }
+
+    warn!("{}", output);
+}
+
 pub(crate) fn vnet_hdr_len() -> usize {
     mem::size_of::<virtio_net_hdr_v1>()
 }
@@ -693,7 +706,14 @@ impl Net {
                     }
                 }
             }
-            
+
+            // DEBUG
+            // Added by Mihai
+            // Print the whole frame before sending to Secondary
+            // Check VNET header and TCP Checksum.
+            let full_frame: Vec<u8> = self.tx_frame_buf[..read_count].to_vec();
+            print_hex_vec(&full_frame);
+
             //Added by Mihai
             // I need to use self, so I will send from here.Receiver
 

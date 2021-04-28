@@ -1,0 +1,77 @@
+TCP SYN ACK (Cred) PACKET from microVM to 10.1 :
+
+2021-04-28T15:51:02.681194014 [anonymous-instance:main]
+
+	01 00 00 00 00 00 22 00    10 00 00 00 fe 54 00 54
+	54 de aa fc 00 00 00 01    08 00 45 00 00 3c 00 00
+	40 00 ff 06 67 b9 0a 00    00 02 0a 00 00 01 14 51
+	95 fa 8f e0 d1 6c 17 e7    73 6c a0 12 71 20 14 31
+	00 00 02 04 05 b4 04 02    08 0a 91 64 3f f4 66 41
+	e7 13 01 03 03 04
+	
+size = 74
+VNET HDR: 01 00 00 00 00 00 22 00    10 00 00 00
+TCP Checksum: 14 31
+
+
+Checking the VNET HDR:
+
+pub struct virtio_net_hdr_v1 {
+    pub flags: __u8, == 01 // are bit-ul 0 setat, asta inseamna VIRTIO_NET_F_CSUM
+    pub gso_type: __u8, == 00
+    pub hdr_len: __virtio16, == 00 00
+    pub gso_size: __virtio16, == 00 00
+    pub csum_start: __virtio16, == 22 00 // cumva asta inseamna 34, octetii sunt in ordine inversa
+    pub csum_offset: __virtio16, == 10 00 // iar asta inseamna 16
+    pub num_buffers: __virtio16, == 00 00
+}
+
+https://docs.oasis-open.org/virtio/virtio/v1.1/csprd01/virtio-v1.1-csprd01.html#x1-2050006
+
+Found on the above website:
+
+VIRTIO_NET_F_CSUM (0) == bit-ul 0
+    Device handles packets with partial checksum. This “checksum offload” is a common feature on modern network cards.
+
+If the driver negotiated VIRTIO_NET_F_CSUM, it can skip checksumming the packet:
+
+    flags has the VIRTIO_NET_HDR_F_NEEDS_CSUM set,
+    csum_start is set to the offset within the packet to begin checksumming, and
+    csum_offset indicates how many bytes after the csum_start the new (16 bit ones’ complement) checksum is placed by the device.
+    The TCP checksum field in the packet is set to the sum of the TCP pseudo header, so that replacing it by the ones’ complement checksum of the TCP header and body will give the correct result.
+    
+
+struct virtio_net_hdr { 
+#define VIRTIO_NET_HDR_F_NEEDS_CSUM    1 
+#define VIRTIO_NET_HDR_F_DATA_VALID    2 
+#define VIRTIO_NET_HDR_F_RSC_INFO      4 
+        u8 flags; 
+#define VIRTIO_NET_HDR_GSO_NONE        0 
+#define VIRTIO_NET_HDR_GSO_TCPV4       1 
+#define VIRTIO_NET_HDR_GSO_UDP         3 
+#define VIRTIO_NET_HDR_GSO_TCPV6       4 
+#define VIRTIO_NET_HDR_GSO_ECN      0x80 
+        u8 gso_type; 
+        le16 hdr_len; 
+        le16 gso_size; 
+        le16 csum_start; 
+        le16 csum_offset; 
+        le16 num_buffers; 
+}; 
+
+-------------------------------------------------------------------------------------
+http://www.tcpipguide.com/free/t_TCPChecksumCalculationandtheTCPPseudoHeader-2.htm
+
+TCP Pseudoheader:
+
+The TCP pseudo header is used to associate the TCP segment with the IP header. The TCP pseudo header is added to the beginning of the TCP segment only during the checksum calculation and is not sent as part of the TCP segment. The use of the TCP pseudo header assures the receiver that a routing or fragmentation process did not improperly modify key fields in the IP header.
+
+pseudo header:
+
+source ip addr = taken from ip header
+dest ip addr = taken from ip header
+unused = 0x00
+protocol = protocol field form ip header
+length = the length of the tcp segment, including both header and data. It is not a specific field in tcp header, it is computed.
+
+

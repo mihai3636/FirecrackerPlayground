@@ -47,6 +47,22 @@ Merg pe logica la receive cand se triggeruieste tap_fd si mai schimb in functie 
 CHANGELOG:
 
 
+Found an issue: TCP Handshakes are not working.
+The packets sent from microVM are not computing the right TCP Checksum.
+Need to investigate: check TcpChecksumInvestigation.txt
+
+From the above investigation I believe the following:
+
+the virtio headers flag is set to VIRTIO_NET_F_CSUM whcih means that the
+checksum calculation is assumed to be done by the device.
+
+The checksum indicated by the packet which just got out from the guest memory
+is exactly the number indicated by wireshark, which means DPDK did not alted the checksum.
+
+According the virtio documentation, the value of the checksum is equal to the sum of the
+TCP pseudoheader. (the value computed by the microVM)
+
+---------------------------------------------------------------------------------------
 Packets are flowing both in and out of the Guest using the DPDK interface now.
 Solved the GSO error by adding a vnet header.
 Used the existing init functions for vnet header, the bytes are all set to 0.
