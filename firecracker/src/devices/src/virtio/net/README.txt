@@ -46,7 +46,21 @@ Merg pe logica la receive cand se triggeruieste tap_fd si mai schimb in functie 
 
 CHANGELOG:
 
+Solved the TCP Handshake issue.
+The suspicion from last udpate was true.
+I made DPDK primary to offload TCP checksum to hardware, modified the code in primary dpdk.
+There was no need to calculate the pseudo header checksum in primary because the packet
+came with the pseudoheader calculated from guest.
 
+iperf3 -s on microVM then iperf3 -c 10.2 on physical host is working.
+
+Found another issue: iperf3 is not working when microVM is acting as a sender.
+Investigation going on.
+Suspicion: the data copied from guest memory is not a single packet. It's too much data there
+and I assumed it was a single packet.
+
+Check bug_log.txt
+--------------------------------------------------------------------------------------
 Found an issue: TCP Handshakes are not working.
 The packets sent from microVM are not computing the right TCP Checksum.
 Need to investigate: check TcpChecksumInvestigation.txt

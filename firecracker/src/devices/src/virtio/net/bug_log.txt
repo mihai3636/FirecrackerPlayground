@@ -1,0 +1,183 @@
+// This is the log of the primary DPDK.
+// "Received mbuf from SECONDARY" is the buffer sent from secondary DPDK which is dpdk_component in Firecracker.
+// There is something wrong  when microVM is the sender when using iperf3
+
+// I was expecting to copy a single packet from guest memory but it seems there is more than a packet.
+// example: Received mbuf from SECONDARY. Size: 2962
+
+
+Core 1 forwarding packets. [Ctrl+C to quit]
+Rx offload capa: 76303
+Tx offloag capa: 32783
+I am capable (not necessarily doing it) of tcp checksum offload: 8
+Received mbuf from SECONDARY. Size: 90
+Packet SENT to PORT.
+Received mbuf from SECONDARY. Size: 90
+Packet SENT to PORT.
+Received mbuf from SECONDARY. Size: 86
+Packet SENT to PORT.
+Received mbuf from SECONDARY. Size: 90
+Packet SENT to PORT.
+Received mbuf from SECONDARY. Size: 70
+Packet SENT to PORT.
+Received mbuf from SECONDARY. Size: 90
+Packet SENT to PORT.
+Received mbuf from SECONDARY. Size: 70
+Packet SENT to PORT.
+Received mbuf from SECONDARY. Size: 70
+Packet SENT to PORT.
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 74
+Received mbuf from SECONDARY. Size: 42
+Packet SENT to PORT.
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 60
+Received mbuf from SECONDARY. Size: 74
+Packet SENT to PORT.
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 66
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 103
+Received mbuf from SECONDARY. Size: 66
+Packet SENT to PORT.
+Received mbuf from SECONDARY. Size: 67
+Packet SENT to PORT.
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 66
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 70
+Received mbuf from SECONDARY. Size: 66
+Packet SENT to PORT.
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 181
+Received mbuf from SECONDARY. Size: 66
+Packet SENT to PORT.
+Received mbuf from SECONDARY. Size: 67
+Packet SENT to PORT.
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 66
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 74
+Received mbuf from SECONDARY. Size: 74
+Packet SENT to PORT.
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 66
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 103
+Received mbuf from SECONDARY. Size: 66
+Packet SENT to PORT.
+Received mbuf from SECONDARY. Size: 67
+Packet SENT to PORT.
+Received mbuf from SECONDARY. Size: 22423
+Nu s-a trimis pachetul.
+Packet SENT to PORT.
+Received mbuf from SECONDARY. Size: 11424
+Nu s-a trimis pachetul.
+Packet SENT to PORT.
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 66
+Received mbuf from SECONDARY. Size: 10580
+Nu s-a trimis pachetul.
+Packet SENT to PORT.
+Received mbuf from SECONDARY. Size: 49550
+Nu s-a trimis pachetul.
+Packet SENT to PORT.
+Received mbuf from SECONDARY. Size: 2962
+Packet SENT to PORT.
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 78
+Received mbuf from SECONDARY. Size: 67
+Packet SENT to PORT.
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 66
+Received mbuf from SECONDARY. Size: 2962
+Packet SENT to PORT.
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 78
+Received mbuf from SECONDARY. Size: 1514
+Packet SENT to PORT.
+Received mbuf from SECONDARY. Size: 1514
+Packet SENT to PORT.
+Received mbuf from SECONDARY. Size: 1514
+Packet SENT to PORT.
+Received mbufs from PORT! Count: 2
+Packet 0 was PUT into SENDING Q. Size: 78
+Packet 1 was PUT into SENDING Q. Size: 78
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 78
+Received mbuf from SECONDARY. Size: 1514
+Packet SENT to PORT.
+Received mbuf from SECONDARY. Size: 1514
+Packet SENT to PORT.
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 78
+Received mbuf from SECONDARY. Size: 1514
+Packet SENT to PORT.
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 78
+Received mbuf from SECONDARY. Size: 1514
+Packet SENT to PORT.
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 78
+Received mbuf from SECONDARY. Size: 1514
+Packet SENT to PORT.
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 78
+Received mbuf from SECONDARY. Size: 1514
+Packet SENT to PORT.
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 66
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 66
+Received mbuf from SECONDARY. Size: 2962
+Packet SENT to PORT.
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 66
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 67
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 67
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 67
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 67
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 67
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 66
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 67
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 68
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 66
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 66
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 66
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 66
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 66
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 68
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 66
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 68
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 87
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 107
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 66
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 68
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 66
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 60
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 60
+Received mbufs from PORT! Count: 1
+Packet 0 was PUT into SENDING Q. Size: 60

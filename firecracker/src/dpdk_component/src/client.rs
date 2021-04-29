@@ -91,6 +91,7 @@ impl ClientDpdk {
         unsafe {
             let buf_addr: *mut c_void = (*struct_pt).buf_addr;
             let mut real_buf_addr = buf_addr.offset((*struct_pt).data_off as isize);
+            warn!("Trying to put vec into mbuf, size: {}", my_vec_size);
 
             copy(my_vec, real_buf_addr as *mut u8, my_vec_size);
             (*struct_pt).data_len =  my_vec_size as u16;

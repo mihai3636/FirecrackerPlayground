@@ -711,8 +711,8 @@ impl Net {
             // Added by Mihai
             // Print the whole frame before sending to Secondary
             // Check VNET header and TCP Checksum.
-            let full_frame: Vec<u8> = self.tx_frame_buf[..read_count].to_vec();
-            print_hex_vec(&full_frame);
+            // let full_frame: Vec<u8> = self.tx_frame_buf[..read_count].to_vec();
+            // print_hex_vec(&full_frame);
 
             //Added by Mihai
             // I need to use self, so I will send from here.Receiver
