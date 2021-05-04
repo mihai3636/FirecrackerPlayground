@@ -711,15 +711,20 @@ impl Net {
             // Added by Mihai
             // Print the whole frame before sending to Secondary
             // Check VNET header and TCP Checksum.
-            // let full_frame: Vec<u8> = self.tx_frame_buf[..read_count].to_vec();
-            // print_hex_vec(&full_frame);
-
+            let full_frame: Vec<u8> = self.tx_frame_buf[..read_count].to_vec();
+            warn!("Read count is: {}", read_count);
+            
+            // DEBUG
+            // if read_count >= 32000 {
+            //     print_hex_vec(&full_frame);
+            //     panic!("I got my 1526 vec for analyzing.");
+            // }
             //Added by Mihai
             // I need to use self, so I will send from here.Receiver
-
             let my_vec: Vec<u8> = self.tx_frame_buf[12..read_count].to_vec();
             // warn!("Sending to SECONDARY, length: {}", my_vec.len());
             self.tx_channel.send(my_vec).unwrap();
+
 
             // Removed by Mihai - no longer sending on the TAP interface.
             // let frame_consumed_by_mmds = Self::write_to_mmds_or_tap(

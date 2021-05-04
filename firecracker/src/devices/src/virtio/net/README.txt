@@ -46,6 +46,14 @@ Merg pe logica la receive cand se triggeruieste tap_fd si mai schimb in functie 
 
 CHANGELOG:
 
+Solved the iperf3 microVM sender issue by increasing the size of the mbuf when allocating
+mempool in primary.
+Added TCP fragmentation logic in primary.
+If Hardware allows it, it will offload the fragmentation.
+If Hardware doesn't allot it, it will compute it in software.
+
+Without software segmentation it gives better performance by sending huge packets.
+--------------------------------------------------------------------------------------------
 Solved the TCP Handshake issue.
 The suspicion from last udpate was true.
 I made DPDK primary to offload TCP checksum to hardware, modified the code in primary dpdk.
