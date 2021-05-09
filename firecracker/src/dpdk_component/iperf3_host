@@ -1,0 +1,125 @@
+mihai@bobitza:~/LICENTA$ iperf3 -c 10.2
+Connecting to host 10.2, port 5201
+[  5] local 10.0.0.1 port 49024 connected to 10.0.0.2 port 5201
+[ ID] Interval           Transfer     Bitrate         Retr  Cwnd
+[  5]   0.00-1.00   sec  4.08 MBytes  34.2 Mbits/sec    5   66.5 KBytes       
+[  5]   1.00-2.00   sec  2.55 MBytes  21.4 Mbits/sec    2   67.9 KBytes       
+[  5]   2.00-3.00   sec  2.49 MBytes  20.9 Mbits/sec    0   87.7 KBytes       
+[  5]   3.00-4.00   sec  3.42 MBytes  28.7 Mbits/sec    1   87.7 KBytes       
+[  5]   4.00-5.00   sec  2.98 MBytes  25.0 Mbits/sec    1   89.1 KBytes       
+[  5]   5.00-6.00   sec  3.23 MBytes  27.1 Mbits/sec    3   90.5 KBytes       
+[  5]   6.00-7.00   sec  3.91 MBytes  32.8 Mbits/sec    6   66.5 KBytes       
+[  5]   7.00-8.00   sec  2.98 MBytes  25.0 Mbits/sec    0   96.2 KBytes       
+[  5]   8.00-9.00   sec  3.73 MBytes  31.3 Mbits/sec    9   63.6 KBytes       
+[  5]   9.00-10.00  sec  2.98 MBytes  25.0 Mbits/sec    0   93.3 KBytes       
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Retr
+[  5]   0.00-10.00  sec  32.4 MBytes  27.1 Mbits/sec   27             sender
+[  5]   0.00-10.04  sec  32.0 MBytes  26.7 Mbits/sec                  receiver
+
+iperf Done.
+mihai@bobitza:~/LICENTA$ iperf3 -c 10.2 -R
+Connecting to host 10.2, port 5201
+Reverse mode, remote host 10.2 is sending
+[  5] local 10.0.0.1 port 49028 connected to 10.0.0.2 port 5201
+[ ID] Interval           Transfer     Bitrate
+[  5]   0.00-1.00   sec  47.5 MBytes   399 Mbits/sec                  
+[  5]   1.00-2.00   sec  46.2 MBytes   387 Mbits/sec                  
+[  5]   2.00-3.00   sec  44.7 MBytes   375 Mbits/sec                  
+[  5]   3.00-4.00   sec  45.1 MBytes   379 Mbits/sec                  
+[  5]   4.00-5.00   sec  46.3 MBytes   388 Mbits/sec                  
+[  5]   5.00-6.00   sec  42.1 MBytes   353 Mbits/sec                  
+[  5]   6.00-7.00   sec  42.5 MBytes   356 Mbits/sec                  
+[  5]   7.00-8.00   sec  44.8 MBytes   376 Mbits/sec                  
+[  5]   8.00-9.00   sec  34.1 MBytes   286 Mbits/sec                  
+[  5]   9.00-10.00  sec  44.6 MBytes   374 Mbits/sec                  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Retr
+[  5]   0.00-10.05  sec   438 MBytes   366 Mbits/sec    7             sender
+[  5]   0.00-10.00  sec   438 MBytes   367 Mbits/sec                  receiver
+
+iperf Done.
+mihai@bobitza:~/LICENTA$ iperf3 -c 10.2 -u
+Connecting to host 10.2, port 5201
+[  5] local 10.0.0.1 port 52812 connected to 10.0.0.2 port 5201
+[ ID] Interval           Transfer     Bitrate         Total Datagrams
+[  5]   0.00-1.00   sec   129 KBytes  1.05 Mbits/sec  91  
+[  5]   1.00-2.00   sec   127 KBytes  1.04 Mbits/sec  90  
+[  5]   2.00-3.00   sec   129 KBytes  1.05 Mbits/sec  91  
+[  5]   3.00-4.00   sec   127 KBytes  1.04 Mbits/sec  90  
+[  5]   4.00-5.00   sec   129 KBytes  1.05 Mbits/sec  91  
+[  5]   5.00-6.00   sec   129 KBytes  1.05 Mbits/sec  91  
+[  5]   6.00-7.00   sec   127 KBytes  1.04 Mbits/sec  90  
+[  5]   7.00-8.00   sec   129 KBytes  1.05 Mbits/sec  91  
+[  5]   8.00-9.00   sec   127 KBytes  1.04 Mbits/sec  90  
+[  5]   9.00-10.00  sec   129 KBytes  1.05 Mbits/sec  91  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  5]   0.00-10.00  sec  1.25 MBytes  1.05 Mbits/sec  0.000 ms  0/906 (0%)  sender
+[  5]   0.00-10.04  sec  1.25 MBytes  1.04 Mbits/sec  6.838 ms  0/903 (0%)  receiver
+
+iperf Done.
+mihai@bobitza:~/LICENTA$ 
+mihai@bobitza:~/LICENTA$ iperf3 -c 10.2 -u -R
+Connecting to host 10.2, port 5201
+Reverse mode, remote host 10.2 is sending
+[  5] local 10.0.0.1 port 56684 connected to 10.0.0.2 port 5201
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  5]   0.00-1.00   sec   129 KBytes  1.05 Mbits/sec  3756.610 ms  0/91 (0%)  
+[  5]   1.00-2.00   sec   127 KBytes  1.04 Mbits/sec  18.393 ms  0/90 (0%)  
+[  5]   2.00-3.00   sec   129 KBytes  1.05 Mbits/sec  7.284 ms  0/91 (0%)  
+[  5]   3.00-4.00   sec   127 KBytes  1.04 Mbits/sec  7.113 ms  0/90 (0%)  
+[  5]   4.00-5.00   sec   129 KBytes  1.05 Mbits/sec  7.395 ms  0/91 (0%)  
+[  5]   5.00-6.00   sec   127 KBytes  1.04 Mbits/sec  7.187 ms  0/90 (0%)  
+[  5]   6.00-7.00   sec   129 KBytes  1.05 Mbits/sec  6.453 ms  0/91 (0%)  
+[  5]   7.00-8.00   sec   127 KBytes  1.04 Mbits/sec  7.325 ms  0/90 (0%)  
+[  5]   8.00-9.00   sec   129 KBytes  1.05 Mbits/sec  6.522 ms  0/91 (0%)  
+[  5]   9.00-10.00  sec   129 KBytes  1.05 Mbits/sec  7.143 ms  0/91 (0%)  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  5]   0.00-10.02  sec  1.25 MBytes  1.05 Mbits/sec  0.000 ms  0/906 (0%)  sender
+[  5]   0.00-10.00  sec  1.25 MBytes  1.05 Mbits/sec  7.143 ms  0/906 (0%)  receiver
+
+iperf Done.
+mihai@bobitza:~/LICENTA$ iperf3 -c 10.2 -u -b 0
+Connecting to host 10.2, port 5201
+[  5] local 10.0.0.1 port 46345 connected to 10.0.0.2 port 5201
+[ ID] Interval           Transfer     Bitrate         Total Datagrams
+[  5]   0.00-1.00   sec   252 MBytes  2.11 Gbits/sec  182320  
+[  5]   1.00-2.00   sec   187 MBytes  1.57 Gbits/sec  135430  
+[  5]   2.00-3.00   sec   215 MBytes  1.80 Gbits/sec  155440  
+[  5]   3.00-4.00   sec   222 MBytes  1.86 Gbits/sec  160480  
+[  5]   4.00-5.00   sec   187 MBytes  1.57 Gbits/sec  135170  
+[  5]   5.00-6.00   sec   196 MBytes  1.64 Gbits/sec  141840  
+[  5]   6.00-7.00   sec   245 MBytes  2.06 Gbits/sec  177540  
+[  5]   7.00-8.00   sec   201 MBytes  1.69 Gbits/sec  145790  
+[  5]   8.00-9.00   sec  20.4 MBytes   171 Mbits/sec  14780  
+[  5]   9.00-10.00  sec   228 MBytes  1.91 Gbits/sec  164900  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  5]   0.00-10.00  sec  1.91 GBytes  1.64 Gbits/sec  0.000 ms  0/1413690 (0%)  sender
+[  5]   0.00-10.25  sec  38.4 MBytes  31.4 Mbits/sec  0.257 ms  1384727/1412546 (98%)  receiver
+
+iperf Done.
+mihai@bobitza:~/LICENTA$ iperf3 -c 10.2 -R -u -b 0
+Connecting to host 10.2, port 5201
+Reverse mode, remote host 10.2 is sending
+[  5] local 10.0.0.1 port 38067 connected to 10.0.0.2 port 5201
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  5]   0.00-1.00   sec  6.58 MBytes  55.2 Mbits/sec  0.087 ms  0/4762 (0%)  
+[  5]   1.00-2.00   sec  7.34 MBytes  61.5 Mbits/sec  0.141 ms  0/5312 (0%)  
+[  5]   2.00-3.00   sec  8.20 MBytes  68.8 Mbits/sec  0.111 ms  0/5937 (0%)  
+[  5]   3.00-4.00   sec  8.39 MBytes  70.3 Mbits/sec  0.477 ms  0/6073 (0%)  
+[  5]   4.00-5.00   sec  8.90 MBytes  74.7 Mbits/sec  0.242 ms  0/6446 (0%)  
+[  5]   5.00-6.00   sec  8.05 MBytes  67.5 Mbits/sec  0.273 ms  0/5829 (0%)  
+[  5]   6.00-7.00   sec  8.10 MBytes  67.9 Mbits/sec  0.400 ms  0/5866 (0%)  
+[  5]   7.00-8.00   sec  8.12 MBytes  68.1 Mbits/sec  0.135 ms  0/5880 (0%)  
+[  5]   8.00-9.00   sec  8.16 MBytes  68.5 Mbits/sec  0.177 ms  0/5911 (0%)  
+[  5]   9.00-10.00  sec  8.38 MBytes  70.3 Mbits/sec  0.400 ms  0/6071 (0%)  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  5]   0.00-10.01  sec  92.5 MBytes  77.5 Mbits/sec  0.000 ms  0/66970 (0%)  sender
+[  5]   0.00-10.00  sec  80.2 MBytes  67.3 Mbits/sec  0.400 ms  0/58087 (0%)  receiver
+
+iperf Done.
+mihai@bobitza:~/LICENTA$ 

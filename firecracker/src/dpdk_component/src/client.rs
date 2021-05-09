@@ -270,7 +270,7 @@ impl ClientDpdk {
         // Put the packet into the mbuf
         let my_mbuf = my_mbuf.unwrap();
         let my_mbuf_struct: *mut rte_mbuf = my_mbuf as (*mut rte_mbuf);
-        
+
         self.put_vec_into_mbuf(my_mbuf_struct, my_data.as_mut_ptr(), my_data.len());
 
         // let mut test_vec: Vec<u8> = vec![0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf];
