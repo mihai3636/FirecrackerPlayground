@@ -1,0 +1,15 @@
+Strategy_1
+
+A new strategy for handling data in secondary app.
+
+There are two brances:
+
+get data from device -> dpdk primary
+get data from primary -> device
+
+
+As of before, those 2 were done iteratively.
+
+I am going to keep requesting data from a place until it gives me nothing.
+
+#1
