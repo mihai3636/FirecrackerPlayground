@@ -13,3 +13,8 @@ As of before, those 2 were done iteratively.
 I am going to keep requesting data from a place until it gives me nothing.
 
 #1
+
+Modified the routines,
+getting nearly the same result, can't really tell the difference.
+
+When testing, the primary was already using strategy 1 too.

@@ -306,24 +306,32 @@ impl ClientDpdk {
         loop {
             // We are breaking the loop if Firecracker thread kills the channel.
 
-            match self.from_firecracker.try_recv() {
-                Ok(some_data) => {
-                    // After receiving something on the channel
-                    // I want to send it to the primary DPDK
-                    // And the primary will send it to hardware NIC
-                    my_data = some_data;
-                    // self.print_hex_vec(&my_data);
-                    self.send_packet_to_primary(&mut my_data);
-                },
-                Err(TryRecvError::Disconnected) => {
-                    warn!("Channel closed by sender. No more to receive." );
-                    break;
-                },
-                Err(TryRecvError::Empty) => {
-                    ()
-                },
-            };
+            let mut end_big_loop = 0;
+            // If we get data, we ask for data again.
+            loop {
+                match self.from_firecracker.try_recv() {
+                    Ok(some_data) => {
+                        // After receiving something on the channel
+                        // I want to send it to the primary DPDK
+                        // And the primary will send it to hardware NIC
+                        my_data = some_data;
+                        // self.print_hex_vec(&my_data);
+                        self.send_packet_to_primary(&mut my_data);
+                    },
+                    Err(TryRecvError::Disconnected) => {
+                        warn!("Channel closed by sender. No more to receive." );
+                        end_big_loop = 1;
+                        break;
+                    },
+                    Err(TryRecvError::Empty) => {
+                        break;
+                    },
+                };
+            }
 
+            if end_big_loop == 1 {
+                break;
+            }
             // Reaching here means something was received from channel and sent to primary, or not.
 
             // Now we attempt to get an mbuf from shared ring.
@@ -331,7 +339,7 @@ impl ClientDpdk {
             let mut mbuf_ptr: *mut *mut c_void = &mut mbuf;
 
             // Getting mbuf from shared ring
-            if let Ok(_) = self.do_rte_ring_dequeue(mbuf_ptr) {
+            while let Ok(_) = self.do_rte_ring_dequeue(mbuf_ptr) {
                 
                 // Enters here only if mbuf was waiting in the queue
                 let mut received_vec: Vec<u8> = self.get_vec_from_mbuf(mbuf);
