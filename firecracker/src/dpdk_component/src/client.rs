@@ -26,7 +26,7 @@ use std::time;
 
 use std::ffi::CString;
 use std::os::raw::c_void;
-use std::ptr::{copy, null_mut};
+use std::ptr::{copy, null_mut, copy_nonoverlapping};
 
 use logger::{warn, error};
 use crate::MAX_BUFFER_SIZE;
@@ -98,7 +98,7 @@ impl ClientDpdk {
             let mut real_buf_addr = buf_addr.offset((*struct_pt).data_off as isize);
             // warn!("Trying to put vec into mbuf, size: {}", my_vec_size);
 
-            copy(my_vec, real_buf_addr as *mut u8, my_vec_size);
+            copy_nonoverlapping(my_vec, real_buf_addr as *mut u8, my_vec_size);
             (*struct_pt).data_len =  my_vec_size as u16;
             (*struct_pt).pkt_len = my_vec_size as u32;
             (*struct_pt).nb_segs = 1;
@@ -115,7 +115,7 @@ impl ClientDpdk {
             let buf_addr: *mut c_void = (*struct_pt).buf_addr;
             let mut real_buf_addr = buf_addr.offset((*struct_pt).data_off as isize);
 
-            copy(my_array, real_buf_addr as *mut u8, my_array_size);
+            copy_nonoverlapping(my_array, real_buf_addr as *mut u8, my_array_size);
             (*struct_pt).data_len = my_array_size as u16;
             (*struct_pt).pkt_len = my_array_size as u32;
             (*struct_pt).nb_segs = 1;
@@ -139,7 +139,7 @@ impl ClientDpdk {
 
             data_buf_size = (*mbuf_ptr).data_len as usize;            
             rez_vec = Vec::with_capacity(data_buf_size);
-            copy(real_data_buf_addr as *const u8, rez_vec.as_mut_ptr() as *mut u8, data_buf_size);
+            copy_nonoverlapping(real_data_buf_addr as *const u8, rez_vec.as_mut_ptr() as *mut u8, data_buf_size);
             // Very important to set len!
             rez_vec.set_len(data_buf_size);
         }
