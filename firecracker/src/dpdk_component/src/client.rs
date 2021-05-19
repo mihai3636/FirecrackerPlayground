@@ -21,6 +21,7 @@ use crate::Error;
 use std::io;
 
 use std::sync::mpsc::{Receiver, channel, TryRecvError, Sender};
+use std::sync::{Arc, Mutex};
 use std::time;
 
 use std::ffi::CString;
@@ -37,7 +38,7 @@ pub fn test_func() {
 
 pub struct ClientDpdk {
     // The rust channel used to get packets from firecracker thread.
-    from_firecracker: Receiver<Vec<u8>>,
+    from_firecracker: Receiver<Vec<u32>>,
     to_firecracker: Sender<Vec<u8>>,
 
     // The rte rings used to send mbufs to primary app.
@@ -50,12 +51,15 @@ pub struct ClientDpdk {
     mempool: *mut rte_mempool,
 
     event_dpdk_secondary: EventFd,
+    //The shared frame buf, this data has to be sent to primary dpdk.
+    tx_frame_buf_shared: Arc<Mutex<[u8; MAX_BUFFER_SIZE]>>
 }
 
 impl ClientDpdk {
-    pub fn new_with_receiver(receiver_channel: Receiver<Vec<u8>>,
+    pub fn new_with_receiver(receiver_channel: Receiver<Vec<u32>>,
         sender_channel: Sender<Vec<u8>>,
-        event_dpdk_secondary: EventFd) -> ClientDpdk {
+        event_dpdk_secondary: EventFd,
+        tx_frame_buf_shared: Arc<Mutex<[u8; MAX_BUFFER_SIZE]>>) -> ClientDpdk {
 
         warn!("New client has been created! Yeey!");
         ClientDpdk {
@@ -68,6 +72,7 @@ impl ClientDpdk {
             send_ring: null_mut(),
             mempool: null_mut(),
             event_dpdk_secondary: event_dpdk_secondary,
+            tx_frame_buf_shared: tx_frame_buf_shared,
         }
     }
 
@@ -96,6 +101,23 @@ impl ClientDpdk {
             copy(my_vec, real_buf_addr as *mut u8, my_vec_size);
             (*struct_pt).data_len =  my_vec_size as u16;
             (*struct_pt).pkt_len = my_vec_size as u32;
+            (*struct_pt).nb_segs = 1;
+        }
+    }
+
+    /// UNSAFE FUNC
+    /// Puts an array inside the data buffer of mbuf structure
+    /// First param: a pointer to a struct rte_mbuf
+    /// Second param: a pointer to your array. Remember to start from 12th element due to vnet header issue
+    /// Third param: size of your array
+    fn put_array_into_mbuf(&self, struct_pt: *mut rte_mbuf, my_array: *const u8, my_array_size: usize) {
+        unsafe {
+            let buf_addr: *mut c_void = (*struct_pt).buf_addr;
+            let mut real_buf_addr = buf_addr.offset((*struct_pt).data_off as isize);
+
+            copy(my_array, real_buf_addr as *mut u8, my_array_size);
+            (*struct_pt).data_len = my_array_size as u16;
+            (*struct_pt).pkt_len = my_array_size as u32;
             (*struct_pt).nb_segs = 1;
         }
     }
@@ -258,7 +280,7 @@ impl ClientDpdk {
     /// Receives a Vec<u8> as param which represent the packet.
     /// Puts the packet inside an mbuf
     /// Then puts the mbuf on a shared ring
-    fn send_packet_to_primary(&self, my_data: &mut Vec<u8>) {
+    fn send_packet_to_primary(&self, number_of_elements: u32) {
         
         let mut my_mbuf = self.do_rte_mempool_get();
         while let Err(er) = my_mbuf {
@@ -271,10 +293,13 @@ impl ClientDpdk {
         let my_mbuf = my_mbuf.unwrap();
         let my_mbuf_struct: *mut rte_mbuf = my_mbuf as (*mut rte_mbuf);
 
-        self.put_vec_into_mbuf(my_mbuf_struct, my_data.as_mut_ptr(), my_data.len());
+        // The packet is inside the shared slice.
+        let shared_data: [u8; MAX_BUFFER_SIZE] = *self.tx_frame_buf_shared.lock().unwrap();
 
-        // let mut test_vec: Vec<u8> = vec![0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf];
-        // self.put_vec_into_buf(my_mbuf_struct, test_vec.as_mut_ptr(), test_vec.len());
+        // self.put_vec_into_mbuf(my_mbuf_struct, my_data.as_mut_ptr(), my_data.len());
+        
+        //Remember to start from 12th element
+        self.put_array_into_mbuf(my_mbuf_struct, &shared_data[12] as *const u8, (number_of_elements - 12) as usize);
 
         // Now we put the mbuf into the shared ring
         // So the primary will get it.
@@ -301,7 +326,7 @@ impl ClientDpdk {
         self.attach_to_mempool();
         warn!("Mempool attached success");
 
-        let mut my_data: Vec<u8> = Vec::new(); 
+        let mut my_data: Vec<u32> = Vec::new(); 
 
         loop {
             // We are breaking the loop if Firecracker thread kills the channel.
@@ -316,7 +341,9 @@ impl ClientDpdk {
                         // And the primary will send it to hardware NIC
                         my_data = some_data;
                         // self.print_hex_vec(&my_data);
-                        self.send_packet_to_primary(&mut my_data);
+
+                        // at my_data[0] is number of elements inside array
+                        self.send_packet_to_primary(my_data[0]);
                     },
                     Err(TryRecvError::Disconnected) => {
                         warn!("Channel closed by sender. No more to receive." );

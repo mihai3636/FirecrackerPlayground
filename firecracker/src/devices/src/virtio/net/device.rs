@@ -41,6 +41,7 @@ use vm_memory::{ByteValued, Bytes, GuestAddress, GuestMemoryError, GuestMemoryMm
 use std::sync::mpsc::{Sender, Receiver, TryRecvError};
 use std::sync::mpsc;
 use dpdk_component::client::*;
+use std::sync::Mutex;
 
 enum FrontendError {
     AddUsed,
@@ -132,6 +133,8 @@ pub struct Net {
     tx_iovec: Vec<(GuestAddress, usize)>,
     tx_frame_buf: [u8; MAX_BUFFER_SIZE],
 
+    tx_frame_buf_shared: Arc<Mutex<[u8; MAX_BUFFER_SIZE]>>,
+
     pub(crate) interrupt_status: Arc<AtomicUsize>,
     pub(crate) interrupt_evt: EventFd,
 
@@ -148,7 +151,7 @@ pub struct Net {
 
     // Added by Mihai
     //This one sends data to secondary dpdk
-    tx_channel: Sender<Vec<u8>>,
+    tx_channel: Sender<Vec<u32>>,
     //This one receives data from secondary dpdk
     rx_channel: Receiver<Vec<u8>>,
     //Using this eventFd to know when secondary dpdk has data to send to net device.
@@ -206,16 +209,20 @@ impl Net {
             None
         };
 
-        let (tx_channel, rx_channel): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::channel();
+        let (tx_channel, rx_channel): (Sender<Vec<u32>>, Receiver<Vec<u32>>) = mpsc::channel();
         let (tx_to_guest, rx_from_secondary): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::channel();
 
         let event_secondary_dpdk = EventFd::new(libc::EFD_NONBLOCK).map_err(Error::EventFd)?;
 
         let event_backup = event_secondary_dpdk.try_clone().expect("Couldn't duplicate the eventfd_dpdk_secondary!");
         // Added by Mihai
+        let tx_frame_buf_shared = Arc::new(Mutex::new([0u8; MAX_BUFFER_SIZE]));
+        let tx_frame_buf_clone = Arc::clone(&tx_frame_buf_shared);
+    
         std::thread::spawn(move || {
-            ClientDpdk::new_with_receiver(rx_channel, tx_to_guest, event_backup).start_dispatcher()
+            ClientDpdk::new_with_receiver(rx_channel, tx_to_guest, event_backup, tx_frame_buf_clone).start_dispatcher()
         });
+
 
         Ok(Net {
             id,
@@ -245,6 +252,7 @@ impl Net {
             tx_channel,
             rx_channel: rx_from_secondary,
             event_secondary_dpdk: event_secondary_dpdk,
+            tx_frame_buf_shared: tx_frame_buf_shared,
         })
     }
 
@@ -678,35 +686,44 @@ impl Net {
                 break;
             }
 
+            // Added bu Mihai
+            
+
             read_count = 0;
             // Copy buffer from across multiple descriptors.
             // TODO(performance - Issue #420): change this to use `writev()` instead of `write()`
             // and get rid of the intermediate buffer.
-            for (desc_addr, desc_len) in self.tx_iovec.drain(..) {
-                let limit = cmp::min((read_count + desc_len) as usize, self.tx_frame_buf.len());
+            {
+                // Get the mutex lock for shared buffer
+                let mut my_shared_frame_buf = self.tx_frame_buf_shared.lock().unwrap();
 
-                let read_result = mem.read_slice(
-                    &mut self.tx_frame_buf[read_count..limit as usize],
-                    desc_addr,
-                );
-                match read_result {
-                    Ok(()) => {
-                        read_count += limit - read_count;
-                        METRICS.net.tx_count.inc();
-                    }
-                    Err(e) => {
-                        error!("Failed to read slice: {:?}", e);
-                        match e {
-                            GuestMemoryError::PartialBuffer { .. } => &METRICS.net.tx_partial_reads,
-                            _ => &METRICS.net.tx_fails,
+                for (desc_addr, desc_len) in self.tx_iovec.drain(..) {
+                    // let limit = cmp::min((read_count + desc_len) as usize, self.tx_frame_buf.len());
+                    let limit = cmp::min((read_count + desc_len) as usize, my_shared_frame_buf.len());
+
+
+                    let read_result = mem.read_slice(
+                        &mut my_shared_frame_buf[read_count..limit as usize],
+                        desc_addr,
+                    );
+                    match read_result {
+                        Ok(()) => {
+                            read_count += limit - read_count;
+                            METRICS.net.tx_count.inc();
                         }
-                        .inc();
-                        read_count = 0;
-                        break;
+                        Err(e) => {
+                            error!("Failed to read slice: {:?}", e);
+                            match e {
+                                GuestMemoryError::PartialBuffer { .. } => &METRICS.net.tx_partial_reads,
+                                _ => &METRICS.net.tx_fails,
+                            }
+                            .inc();
+                            read_count = 0;
+                            break;
+                        }
                     }
                 }
             }
-
             // DEBUG
             // Added by Mihai
             // Print the whole frame before sending to Secondary
@@ -720,10 +737,16 @@ impl Net {
             //     panic!("I got my 1526 vec for analyzing.");
             // }
 
+
+
             //Added by Mihai
             // I need to use self, so I will send from here.Receiver
-            let my_vec: Vec<u8> = self.tx_frame_buf[12..read_count].to_vec();
+            // let my_vec: Vec<u8> = self.tx_frame_buf[12..read_count].to_vec();
             // warn!("Sending to SECONDARY, length: {}", my_vec.len());
+            // self.tx_channel.send(my_vec).unwrap();
+            
+            // Signaling the other side. This is subject to change.
+            let my_vec: Vec<u32> = vec![read_count as u32];
             self.tx_channel.send(my_vec).unwrap();
 
 

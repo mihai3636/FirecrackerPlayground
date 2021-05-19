@@ -3,3 +3,13 @@ device.rs thread to client thread and vice versa.
 
 The plan is to use Arc<Mutex<buffer>> inside device.rs
  
+
+ --------------------------------------
+ Start by replacing tx_frame_buf
+
+ I replaced the tx_frame_buf but the implementation seems to be buggy
+ Wireshark reports errors regarding the packets size.
+
+I still send through the channel the size of the array.
+
+ Perhaps stop casting the size of the array?
