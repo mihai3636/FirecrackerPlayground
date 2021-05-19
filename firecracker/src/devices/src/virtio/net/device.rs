@@ -517,7 +517,7 @@ impl Net {
 
                 // put the received packet into the rx_frame_buf
                 unsafe {
-                    std::ptr::copy(some_data.as_ptr(), ptr_packet, length)
+                    std::ptr::copy_nonoverlapping(some_data.as_ptr(), ptr_packet, length)
                 };
                 return Ok(length + vnet_hdr_len());
             },
