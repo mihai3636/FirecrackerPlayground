@@ -1,0 +1,5 @@
+In this strategy I will try to use shared memory to pass data from
+device.rs thread to client thread and vice versa.
+
+The plan is to use Arc<Mutex<buffer>> inside device.rs
+ 
