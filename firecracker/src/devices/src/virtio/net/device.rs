@@ -151,7 +151,7 @@ pub struct Net {
 
     // Added by Mihai
     //This one sends data to secondary dpdk
-    tx_channel: Sender<Vec<u32>>,
+    tx_channel: Sender<Vec<usize>>,
     //This one receives data from secondary dpdk
     rx_channel: Receiver<Vec<u8>>,
     //Using this eventFd to know when secondary dpdk has data to send to net device.
@@ -209,7 +209,7 @@ impl Net {
             None
         };
 
-        let (tx_channel, rx_channel): (Sender<Vec<u32>>, Receiver<Vec<u32>>) = mpsc::channel();
+        let (tx_channel, rx_channel): (Sender<Vec<usize>>, Receiver<Vec<usize>>) = mpsc::channel();
         let (tx_to_guest, rx_from_secondary): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::channel();
 
         let event_secondary_dpdk = EventFd::new(libc::EFD_NONBLOCK).map_err(Error::EventFd)?;
@@ -746,7 +746,7 @@ impl Net {
             // self.tx_channel.send(my_vec).unwrap();
             
             // Signaling the other side. This is subject to change.
-            let my_vec: Vec<u32> = vec![read_count as u32];
+            let my_vec: Vec<usize> = vec![read_count - 12];
             self.tx_channel.send(my_vec).unwrap();
 
 

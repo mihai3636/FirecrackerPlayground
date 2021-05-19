@@ -38,7 +38,7 @@ pub fn test_func() {
 
 pub struct ClientDpdk {
     // The rust channel used to get packets from firecracker thread.
-    from_firecracker: Receiver<Vec<u32>>,
+    from_firecracker: Receiver<Vec<usize>>,
     to_firecracker: Sender<Vec<u8>>,
 
     // The rte rings used to send mbufs to primary app.
@@ -56,7 +56,7 @@ pub struct ClientDpdk {
 }
 
 impl ClientDpdk {
-    pub fn new_with_receiver(receiver_channel: Receiver<Vec<u32>>,
+    pub fn new_with_receiver(receiver_channel: Receiver<Vec<usize>>,
         sender_channel: Sender<Vec<u8>>,
         event_dpdk_secondary: EventFd,
         tx_frame_buf_shared: Arc<Mutex<[u8; MAX_BUFFER_SIZE]>>) -> ClientDpdk {
@@ -280,7 +280,7 @@ impl ClientDpdk {
     /// Receives a Vec<u8> as param which represent the packet.
     /// Puts the packet inside an mbuf
     /// Then puts the mbuf on a shared ring
-    fn send_packet_to_primary(&self, number_of_elements: u32) {
+    fn send_packet_to_primary(&self, number_of_elements: usize) {
         
         let mut my_mbuf = self.do_rte_mempool_get();
         while let Err(er) = my_mbuf {
@@ -299,7 +299,7 @@ impl ClientDpdk {
         // self.put_vec_into_mbuf(my_mbuf_struct, my_data.as_mut_ptr(), my_data.len());
         
         //Remember to start from 12th element
-        self.put_array_into_mbuf(my_mbuf_struct, &shared_data[12] as *const u8, (number_of_elements - 12) as usize);
+        self.put_array_into_mbuf(my_mbuf_struct, &shared_data[12] as *const u8, number_of_elements);
 
         // Now we put the mbuf into the shared ring
         // So the primary will get it.
@@ -326,7 +326,7 @@ impl ClientDpdk {
         self.attach_to_mempool();
         warn!("Mempool attached success");
 
-        let mut my_data: Vec<u32> = Vec::new(); 
+        let mut my_data: Vec<usize> = Vec::new(); 
 
         loop {
             // We are breaking the loop if Firecracker thread kills the channel.
