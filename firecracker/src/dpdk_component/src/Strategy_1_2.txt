@@ -12,4 +12,11 @@ The plan is to use Arc<Mutex<buffer>> inside device.rs
 
 I still send through the channel the size of the array.
 
- Perhaps stop casting the size of the array?
+Perhaps stop casting the size of the array?
+
+I have found a possible issue:
+
+the secondary dpdk thread is not reaching the mutex on tx_buffer on time.
+The lock is grasped by the firecracker thread 2 times in a row.
+
+I need some mechanism like wait_on.

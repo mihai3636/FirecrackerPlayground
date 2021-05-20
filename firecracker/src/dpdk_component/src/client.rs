@@ -293,14 +293,16 @@ impl ClientDpdk {
         let my_mbuf = my_mbuf.unwrap();
         let my_mbuf_struct: *mut rte_mbuf = my_mbuf as (*mut rte_mbuf);
 
+        // in order to release the mutex faster
+        {
         // The packet is inside the shared slice.
-        let shared_data: [u8; MAX_BUFFER_SIZE] = *self.tx_frame_buf_shared.lock().unwrap();
+            let shared_data: [u8; MAX_BUFFER_SIZE] = *self.tx_frame_buf_shared.lock().unwrap();
 
-        // self.put_vec_into_mbuf(my_mbuf_struct, my_data.as_mut_ptr(), my_data.len());
-        
-        //Remember to start from 12th element
-        self.put_array_into_mbuf(my_mbuf_struct, &shared_data[12] as *const u8, number_of_elements);
+            // self.put_vec_into_mbuf(my_mbuf_struct, my_data.as_mut_ptr(), my_data.len());
 
+            //Remember to start from 12th element
+            self.put_array_into_mbuf(my_mbuf_struct, &shared_data[12] as *const u8, number_of_elements);
+        }
         // Now we put the mbuf into the shared ring
         // So the primary will get it.
         let mut res = self.do_rte_ring_enqueue(my_mbuf);
