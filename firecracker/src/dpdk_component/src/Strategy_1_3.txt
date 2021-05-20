@@ -1,0 +1,10 @@
+Strategy_1_2 did not work, mutexes were not enough for synch.
+
+Found an idea:
+
+put the array inside a Box and use two channels to sychronize access on it.
+
+thread A waits to get the Box from B before writing on the array.
+thread B waits to get the Box from A before reading the array.
+
+Going to create another branch for this.
