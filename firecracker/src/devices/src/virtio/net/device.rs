@@ -447,7 +447,6 @@ impl Net {
             METRICS.net.rx_packets_count.inc();
         }
         // Send the box back to secondary so it knows it is available for writing.
-        warn!("Sending the box back to secondary");
         self.rx_channel_ready.send(self.rx_box.take().unwrap());
         result
     }
@@ -544,7 +543,6 @@ impl Net {
             Ok(mut some_data) => {
                 // some_data is Box<ArrayTuple>
                 let length = some_data.1;
-                warn!("Got a new box in FC. {}", length);
 
                 // warn!("Reading from SECONDARY. Size: {}", length);
                 // init the vnet header first
@@ -552,7 +550,6 @@ impl Net {
 
                 self.rx_box.replace(some_data);
 
-                warn!("Replaced the current Option with this box.");
                 // I am going to send the box back after firecracker writes this box into guest memory
                 return Ok(length + vnet_hdr_len());
             },

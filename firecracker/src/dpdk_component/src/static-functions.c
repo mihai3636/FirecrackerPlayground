@@ -17,3 +17,7 @@ int rte_mempool_get_real(struct rte_mempool *mp, void **obj_p) {
 void rte_mempool_put_real(struct rte_mempool *mp, void *obj) {
     rte_mempool_put(mp, obj);
 }
+
+int rte_ring_empty_real(struct rte_ring *r) {
+    return rte_ring_empty(r);
+}

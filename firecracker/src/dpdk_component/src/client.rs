@@ -11,6 +11,7 @@ use crate::bindingsMbuf::{
     rte_mempool_get_real,
     rte_ring_enqueue_real,
     rte_mempool_put_real,
+    rte_ring_empty_real,
 };
 
 use utils::eventfd::EventFd;
@@ -176,6 +177,16 @@ impl ClientDpdk {
         }
 
         data_buf_size
+    }
+
+    // Returns true if the given ring is empty
+    // Returns false if the ring is not empty
+    fn do_rte_ring_empty(&self, pt_ring: *mut rte_ring) -> bool {
+        let rez: i32 = unsafe { rte_ring_empty_real(self.receive_ring) };
+        if rez == 1 {
+            return true;
+        }
+        false
     }
 
     fn do_rte_ring_dequeue(&self, obj_p: *mut *mut c_void) -> Result<()> {
@@ -398,30 +409,35 @@ impl ClientDpdk {
             let mut mbuf_ptr: *mut *mut c_void = &mut mbuf;
 
             // Getting mbuf from shared ring
-            while let Ok(_) = self.do_rte_ring_dequeue(mbuf_ptr) {
+            while false == self.do_rte_ring_empty(self.receive_ring) {
                 // Enters here only if mbuf was waiting in the queue
-                
-                warn!("Secondary - got packet from primary");
-                let mut boxed_tuple: ArrayTuple = self.rx_ready.recv_timeout(Duration::from_secs(5)).unwrap();
-                let mut buf_array = &mut boxed_tuple.0;
-                warn!("Secondary - rx is ready");
+                if let Ok(mut boxed_tuple) = self.rx_ready.try_recv() {
+                    
+                    // This shouldn't panic because if I am here then ring is not empty.
+                    let rez = self.do_rte_ring_dequeue(mbuf_ptr).unwrap();
 
-                // puts the buf data from mbuf to array
-                boxed_tuple.1 = self.get_array_from_mbuf(mbuf, &mut buf_array);
+                    // let mut boxed_tuple: ArrayTuple = self.rx_ready.recv_timeout(Duration::from_secs(5)).unwrap();
+                    let mut buf_array = &mut boxed_tuple.0;
 
-                // self.print_hex_vec(&received_vec);
-                self.do_rte_mempool_put(mbuf);
-                // warn!("DEQUEUE success. Size: {}", received_vec.len());
+                    // puts the buf data from mbuf to array
+                    boxed_tuple.1 = self.get_array_from_mbuf(mbuf, &mut buf_array);
 
-                // Send the Box containing array to Fc
-                if let Err(er) = self.to_firecracker.send(boxed_tuple) {
-                    warn!("ERROR: Send to firecracker failed.\n");
+                    // self.print_hex_vec(&received_vec);
+                    self.do_rte_mempool_put(mbuf);
+                    // warn!("DEQUEUE success. Size: {}", received_vec.len());
+
+                    // Send the Box containing array to Fc
+                    if let Err(er) = self.to_firecracker.send(boxed_tuple) {
+                        warn!("ERROR: Send to firecracker failed.\n");
+                    }
+
+                    //try to trigger in interrupt for Net device.
+                    self.event_dpdk_secondary.write(1).map_err(|e| {
+                        error!("Failed to signal the Net device from DpdkClient {:?}", e);
+                    });
+                } else {
+                    break;
                 }
-
-                //try to trigger in interrupt for Net device.
-                self.event_dpdk_secondary.write(1).map_err(|e| {
-                    error!("Failed to signal the Net device from DpdkClient {:?}", e);
-                });
             }
         }
     }

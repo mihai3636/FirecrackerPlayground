@@ -12918,6 +12918,11 @@ extern "C" {
         obj: *mut ::std::os::raw::c_void,
     );
 }
+extern "C" {
+    pub fn rte_ring_empty_real(
+        r: *mut rte_ring
+    ) -> ::std::os::raw::c_int;
+}
 pub type __builtin_va_list = [__va_list_tag; 1usize];
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]

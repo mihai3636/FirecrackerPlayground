@@ -12,6 +12,8 @@ fn main() {
     // let path5 = Path::new("./include");
 
     let mut builder = cc::Build::new();
+
+
     
     let build = builder
         .file("src/static-functions.c")

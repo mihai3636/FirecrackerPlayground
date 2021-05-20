@@ -16,3 +16,14 @@ catre microVM, am facut un deadlock.
 Trebuie sa ma gandesc la un mod de a scapa de deadlock.
 Am pus recv_timeout(5) momentan si se vede unde raman threadurile
 pt ca iese cu panic.
+
+-----------------------
+Am reparat deadlock, performantele sunt cam la fel.
+
+TODO:
+
+vezi de ce atunci cand dai cu udp de la microVM spre host, tot se intampla asta:
+2021-05-20T22:41:31.484192536 [anonymous-instance:-] rte_ring_enqueue failed, trying again.
+
+Verifica daca atunci cand primeste pachete de la host catre VM, mbuf-urile folosesc
+campul ala de next. Pt ca diferenta de throughput e mare intre cele doua directii.
