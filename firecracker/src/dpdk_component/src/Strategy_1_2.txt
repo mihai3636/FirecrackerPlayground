@@ -4,7 +4,7 @@ device.rs thread to client thread and vice versa.
 The plan is to use Arc<Mutex<buffer>> inside device.rs
  
 
- --------------------------------------
+ -------------------------------------------------------------------
  Start by replacing tx_frame_buf
 
  I replaced the tx_frame_buf but the implementation seems to be buggy
@@ -20,3 +20,13 @@ the secondary dpdk thread is not reaching the mutex on tx_buffer on time.
 The lock is grasped by the firecracker thread 2 times in a row.
 
 I need some mechanism like wait_on.
+
+
+Found an idea:
+
+put the array inside a Box and use two channels to sychronize access on it.
+
+thread A waits to get the Box from B before writing on the array.
+thread B waits to get the Box from A before reading the array.
+
+Going to create another branch for this.
