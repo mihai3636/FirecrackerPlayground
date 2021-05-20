@@ -41,6 +41,9 @@ use vm_memory::{ByteValued, Bytes, GuestAddress, GuestMemoryError, GuestMemoryMm
 use std::sync::mpsc::{Sender, Receiver, TryRecvError};
 use std::sync::mpsc;
 use dpdk_component::client::*;
+use std::boxed::Box;
+
+use crate::virtio::net::ArrayTuple;
 
 enum FrontendError {
     AddUsed,
@@ -148,11 +151,13 @@ pub struct Net {
 
     // Added by Mihai
     //This one sends data to secondary dpdk
-    tx_channel: Sender<Vec<u8>>,
+    tx_channel: Sender<ArrayTuple>,
     //This one receives data from secondary dpdk
     rx_channel: Receiver<Vec<u8>>,
     //Using this eventFd to know when secondary dpdk has data to send to net device.
     pub(crate) event_secondary_dpdk: EventFd,
+
+    tx_channel_ready: Receiver<ArrayTuple>,
 }
 
 impl Net {
@@ -206,7 +211,14 @@ impl Net {
             None
         };
 
-        let (tx_channel, rx_channel): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::channel();
+        let tx_frame_buf_boxed: ArrayTuple = Box::new(([0u8; MAX_BUFFER_SIZE], 0));
+
+        let (tx_channel, rx_channel): (Sender<ArrayTuple>, Receiver<ArrayTuple>) = mpsc::channel();
+        let (tx_ready_secondary, tx_ready_fc): (Sender<ArrayTuple>, Receiver<ArrayTuple>) = mpsc::channel();
+
+        // Fc will find the box there when asking the secondary for the first time.
+        tx_ready_secondary.send(tx_frame_buf_boxed).unwrap();
+
         let (tx_to_guest, rx_from_secondary): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::channel();
 
         let event_secondary_dpdk = EventFd::new(libc::EFD_NONBLOCK).map_err(Error::EventFd)?;
@@ -214,7 +226,7 @@ impl Net {
         let event_backup = event_secondary_dpdk.try_clone().expect("Couldn't duplicate the eventfd_dpdk_secondary!");
         // Added by Mihai
         std::thread::spawn(move || {
-            ClientDpdk::new_with_receiver(rx_channel, tx_to_guest, event_backup).start_dispatcher()
+            ClientDpdk::new_with_receiver(rx_channel, tx_to_guest, event_backup, tx_ready_secondary).start_dispatcher()
         });
 
         Ok(Net {
@@ -245,6 +257,7 @@ impl Net {
             tx_channel,
             rx_channel: rx_from_secondary,
             event_secondary_dpdk: event_secondary_dpdk,
+            tx_channel_ready: tx_ready_fc,
         })
     }
 
@@ -678,15 +691,18 @@ impl Net {
                 break;
             }
 
+            let mut boxed_tuple: ArrayTuple = self.tx_channel_ready.recv().unwrap();
+            let mut frame_buf = &mut boxed_tuple.0;
+
             read_count = 0;
             // Copy buffer from across multiple descriptors.
             // TODO(performance - Issue #420): change this to use `writev()` instead of `write()`
             // and get rid of the intermediate buffer.
             for (desc_addr, desc_len) in self.tx_iovec.drain(..) {
-                let limit = cmp::min((read_count + desc_len) as usize, self.tx_frame_buf.len());
+                let limit = cmp::min((read_count + desc_len) as usize, frame_buf.len());
 
                 let read_result = mem.read_slice(
-                    &mut self.tx_frame_buf[read_count..limit as usize],
+                    &mut frame_buf[read_count..limit as usize],
                     desc_addr,
                 );
                 match read_result {
@@ -722,9 +738,12 @@ impl Net {
 
             //Added by Mihai
             // I need to use self, so I will send from here.Receiver
-            let my_vec: Vec<u8> = self.tx_frame_buf[12..read_count].to_vec();
+            // let my_vec: Vec<u8> = self.tx_frame_buf[12..read_count].to_vec();
             // warn!("Sending to SECONDARY, length: {}", my_vec.len());
-            self.tx_channel.send(my_vec).unwrap();
+            // self.tx_channel.send(my_vec).unwrap();
+
+            boxed_tuple.1 = read_count;
+            self.tx_channel.send(boxed_tuple).unwrap();
 
 
             // Removed by Mihai - no longer sending on the TAP interface.
