@@ -42,6 +42,8 @@ use std::sync::mpsc::{Sender, Receiver, TryRecvError};
 use std::sync::mpsc;
 use dpdk_component::client::*;
 use std::boxed::Box;
+use std::option;
+use std::time::Duration;
 
 use crate::virtio::net::ArrayTuple;
 
@@ -153,11 +155,14 @@ pub struct Net {
     //This one sends data to secondary dpdk
     tx_channel: Sender<ArrayTuple>,
     //This one receives data from secondary dpdk
-    rx_channel: Receiver<Vec<u8>>,
+    rx_channel: Receiver<ArrayTuple>,
     //Using this eventFd to know when secondary dpdk has data to send to net device.
     pub(crate) event_secondary_dpdk: EventFd,
 
     tx_channel_ready: Receiver<ArrayTuple>,
+    rx_channel_ready: Sender<ArrayTuple>,
+
+    rx_box: Option<ArrayTuple>,
 }
 
 impl Net {
@@ -212,6 +217,7 @@ impl Net {
         };
 
         let tx_frame_buf_boxed: ArrayTuple = Box::new(([0u8; MAX_BUFFER_SIZE], 0));
+        let rx_box: ArrayTuple = Box::new(([0u8; MAX_BUFFER_SIZE], 0));
 
         let (tx_channel, rx_channel): (Sender<ArrayTuple>, Receiver<ArrayTuple>) = mpsc::channel();
         let (tx_ready_secondary, tx_ready_fc): (Sender<ArrayTuple>, Receiver<ArrayTuple>) = mpsc::channel();
@@ -219,14 +225,19 @@ impl Net {
         // Fc will find the box there when asking the secondary for the first time.
         tx_ready_secondary.send(tx_frame_buf_boxed).unwrap();
 
-        let (tx_to_guest, rx_from_secondary): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::channel();
+
+        let (tx_to_guest, rx_from_secondary): (Sender<ArrayTuple>, Receiver<ArrayTuple>) = mpsc::channel();
+        let (rx_ready_fc, rx_ready_secondary): (Sender<ArrayTuple>, Receiver<ArrayTuple>) = mpsc::channel();
+
+        // Secondary will find the box when asking fc for the first time.
+        rx_ready_fc.send(rx_box).unwrap();
 
         let event_secondary_dpdk = EventFd::new(libc::EFD_NONBLOCK).map_err(Error::EventFd)?;
 
         let event_backup = event_secondary_dpdk.try_clone().expect("Couldn't duplicate the eventfd_dpdk_secondary!");
         // Added by Mihai
         std::thread::spawn(move || {
-            ClientDpdk::new_with_receiver(rx_channel, tx_to_guest, event_backup, tx_ready_secondary).start_dispatcher()
+            ClientDpdk::new_with_receiver(rx_channel, tx_to_guest, event_backup, tx_ready_secondary, rx_ready_secondary).start_dispatcher()
         });
 
         Ok(Net {
@@ -258,6 +269,8 @@ impl Net {
             rx_channel: rx_from_secondary,
             event_secondary_dpdk: event_secondary_dpdk,
             tx_channel_ready: tx_ready_fc,
+            rx_channel_ready: rx_ready_fc,
+            rx_box: None,
         })
     }
 
@@ -377,7 +390,11 @@ impl Net {
         })?;
         let head_index = head_descriptor.index;
 
-        let mut frame_slice = &self.rx_frame_buf[..self.rx_bytes_read];
+        // I got left here
+
+        let frame_buf: &[u8; MAX_BUFFER_SIZE] = &self.rx_box.as_ref().unwrap().0;
+
+        let mut frame_slice = &frame_buf[..self.rx_bytes_read];
         let frame_len = frame_slice.len();
         let mut maybe_next_descriptor = Some(head_descriptor);
         while let Some(descriptor) = &maybe_next_descriptor {
@@ -410,6 +427,7 @@ impl Net {
 
             maybe_next_descriptor = descriptor.next_descriptor();
         }
+
         if result.is_ok() && !frame_slice.is_empty() {
             warn!("Receiving buffer is too small to hold frame of current size");
             METRICS.net.rx_fails.inc();
@@ -428,6 +446,9 @@ impl Net {
             METRICS.net.rx_bytes_count.add(frame_len);
             METRICS.net.rx_packets_count.inc();
         }
+        // Send the box back to secondary so it knows it is available for writing.
+        warn!("Sending the box back to secondary");
+        self.rx_channel_ready.send(self.rx_box.take().unwrap());
         result
     }
 
@@ -520,18 +541,19 @@ impl Net {
     fn read_from_secondary(&mut self) -> result::Result<usize, DeviceError> {
         //Try to read non-blocking
         match self.rx_channel.try_recv() {
-            Ok(some_data) => {
-                // some_data is Vec<u8>
-                let length = some_data.len();
+            Ok(mut some_data) => {
+                // some_data is Box<ArrayTuple>
+                let length = some_data.1;
+                warn!("Got a new box in FC. {}", length);
+
                 // warn!("Reading from SECONDARY. Size: {}", length);
                 // init the vnet header first
-                init_vnet_hdr(&mut self.rx_frame_buf);
-                let mut ptr_packet: *mut u8 = unsafe { self.rx_frame_buf.as_mut_ptr().offset(vnet_hdr_len() as isize) };
+                init_vnet_hdr(&mut some_data.0);
 
-                // put the received packet into the rx_frame_buf
-                unsafe {
-                    std::ptr::copy_nonoverlapping(some_data.as_ptr(), ptr_packet, length)
-                };
+                self.rx_box.replace(some_data);
+
+                warn!("Replaced the current Option with this box.");
+                // I am going to send the box back after firecracker writes this box into guest memory
                 return Ok(length + vnet_hdr_len());
             },
             Err(TryRecvError::Disconnected) => {
@@ -691,7 +713,7 @@ impl Net {
                 break;
             }
 
-            let mut boxed_tuple: ArrayTuple = self.tx_channel_ready.recv().unwrap();
+            let mut boxed_tuple: ArrayTuple = self.tx_channel_ready.recv_timeout(Duration::from_secs(5)).unwrap();
             let mut frame_buf = &mut boxed_tuple.0;
 
             read_count = 0;
@@ -854,7 +876,8 @@ impl Net {
         if self.rx_deferred_frame
         // Process a deferred frame first if available. Don't read from tap again
         // until we manage to receive this deferred frame.
-        {
+        {   
+            warn!("HANDLE DEFFERED FRAME");
             self.handle_deferred_frame()
                 .unwrap_or_else(report_net_event_fail);
         } else {

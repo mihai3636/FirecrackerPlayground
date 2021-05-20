@@ -30,6 +30,7 @@ use std::ptr::{copy, null_mut, copy_nonoverlapping};
 use logger::{warn, error};
 use crate::MAX_BUFFER_SIZE;
 use crate::ArrayTuple;
+use std::time::Duration;
 
 
 pub fn test_func() {
@@ -39,7 +40,7 @@ pub fn test_func() {
 pub struct ClientDpdk {
     // The rust channel used to get packets from firecracker thread.
     from_firecracker: Receiver<ArrayTuple>,
-    to_firecracker: Sender<Vec<u8>>,
+    to_firecracker: Sender<ArrayTuple>,
 
     // The rte rings used to send mbufs to primary app.
     receive_ring_name: CString,
@@ -52,13 +53,15 @@ pub struct ClientDpdk {
 
     event_dpdk_secondary: EventFd,
     tx_ready: Sender<ArrayTuple>,
+    rx_ready: Receiver<ArrayTuple>,
 }
 
 impl ClientDpdk {
     pub fn new_with_receiver(receiver_channel: Receiver<ArrayTuple>,
-        sender_channel: Sender<Vec<u8>>,
+        sender_channel: Sender<ArrayTuple>,
         event_dpdk_secondary: EventFd,
         tx_ready: Sender<ArrayTuple>,
+        rx_ready: Receiver<ArrayTuple>,
     ) -> ClientDpdk {
 
         warn!("New client has been created! Yeey!");
@@ -73,6 +76,7 @@ impl ClientDpdk {
             mempool: null_mut(),
             event_dpdk_secondary: event_dpdk_secondary,
             tx_ready: tx_ready,
+            rx_ready: rx_ready,
         }
     }
 
@@ -147,6 +151,31 @@ impl ClientDpdk {
         }
 
         rez_vec
+    }
+
+    /// UNSAFE FUNC
+    /// Receives am mbuf struct as param and a pointer to an array
+    /// Copies mbuf data into the array, startin from 12th position
+    /// Returns the size of the data
+    fn get_array_from_mbuf(&self, struct_pt: *mut c_void, buf_array: &mut [u8; MAX_BUFFER_SIZE]) -> usize {
+
+        let mbuf_ptr: *mut rte_mbuf;
+        let mut data_buf_size: usize;
+
+        mbuf_ptr = struct_pt as *mut rte_mbuf;
+        unsafe {
+            let mut data_buf_addr =(*mbuf_ptr).buf_addr;
+            let mut real_data_buf_addr = data_buf_addr.offset((*mbuf_ptr).data_off as isize);
+
+            // I have to put the data starting from 12th index, because of the vnet hdr.
+            let mut buf_array_offset = &mut buf_array[0] as *mut u8;
+            buf_array_offset = buf_array_offset.offset(12);
+
+            data_buf_size = (*mbuf_ptr).data_len as usize;            
+            copy_nonoverlapping(real_data_buf_addr as *const u8, buf_array_offset, data_buf_size);
+        }
+
+        data_buf_size
     }
 
     fn do_rte_ring_dequeue(&self, obj_p: *mut *mut c_void) -> Result<()> {
@@ -370,18 +399,22 @@ impl ClientDpdk {
 
             // Getting mbuf from shared ring
             while let Ok(_) = self.do_rte_ring_dequeue(mbuf_ptr) {
-                
                 // Enters here only if mbuf was waiting in the queue
-                let mut received_vec: Vec<u8> = self.get_vec_from_mbuf(mbuf);
+                
+                warn!("Secondary - got packet from primary");
+                let mut boxed_tuple: ArrayTuple = self.rx_ready.recv_timeout(Duration::from_secs(5)).unwrap();
+                let mut buf_array = &mut boxed_tuple.0;
+                warn!("Secondary - rx is ready");
 
-                received_vec.resize(received_vec.len(), 0);
+                // puts the buf data from mbuf to array
+                boxed_tuple.1 = self.get_array_from_mbuf(mbuf, &mut buf_array);
 
                 // self.print_hex_vec(&received_vec);
                 self.do_rte_mempool_put(mbuf);
                 // warn!("DEQUEUE success. Size: {}", received_vec.len());
 
-                
-                if let Err(er) = self.to_firecracker.send(received_vec) {
+                // Send the Box containing array to Fc
+                if let Err(er) = self.to_firecracker.send(boxed_tuple) {
                     warn!("ERROR: Send to firecracker failed.\n");
                 }
 

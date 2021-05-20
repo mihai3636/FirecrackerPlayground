@@ -8,3 +8,11 @@ thread A waits to get the Box from B before writing on the array.
 thread B waits to get the Box from A before reading the array.
 
 Going to create another branch for this.
+
+-----------------------------
+Am implementat strategia, dupa ce am facut si transmiterea de la Secondary
+catre microVM, am facut un deadlock.
+
+Trebuie sa ma gandesc la un mod de a scapa de deadlock.
+Am pus recv_timeout(5) momentan si se vede unde raman threadurile
+pt ca iese cu panic.
