@@ -39,9 +39,6 @@ pub fn test_func() {
 }
 
 pub struct ClientDpdk {
-    // The rust channel used to get packets from firecracker thread.
-    from_firecracker: Receiver<ArrayTuple>,
-    to_firecracker: Sender<ArrayTuple>,
 
     // The rte rings used to send mbufs to primary app.
     receive_ring_name: CString,
@@ -53,22 +50,15 @@ pub struct ClientDpdk {
     mempool: *mut rte_mempool,
 
     event_dpdk_secondary: EventFd,
-    tx_ready: Sender<ArrayTuple>,
-    rx_ready: Receiver<ArrayTuple>,
 }
 
 impl ClientDpdk {
-    pub fn new_with_receiver(receiver_channel: Receiver<ArrayTuple>,
-        sender_channel: Sender<ArrayTuple>,
+    pub fn new_with_receiver(
         event_dpdk_secondary: EventFd,
-        tx_ready: Sender<ArrayTuple>,
-        rx_ready: Receiver<ArrayTuple>,
     ) -> ClientDpdk {
 
         warn!("New client has been created! Yeey!");
         ClientDpdk {
-            from_firecracker: receiver_channel,
-            to_firecracker: sender_channel,
             receive_ring_name: CString::new("PRI_2_SEC").expect("Receive ring name failed.\n"),
             send_ring_name: CString::new("SEC_2_PRI").expect("Send ring name failed.\n"),
             mempool_name: CString::new("MSG_POOL").expect("Mempool name failed.\n"),
@@ -76,8 +66,6 @@ impl ClientDpdk {
             send_ring: null_mut(),
             mempool: null_mut(),
             event_dpdk_secondary: event_dpdk_secondary,
-            tx_ready: tx_ready,
-            rx_ready: rx_ready,
         }
     }
 
@@ -374,70 +362,12 @@ impl ClientDpdk {
         loop {
             // We are breaking the loop if Firecracker thread kills the channel.
 
-            let mut end_big_loop = 0;
-            // If we get data, we ask for data again.
-            loop {
-                match self.from_firecracker.try_recv() {
-                    Ok(mut some_data) => {
-                        // After receiving something on the channel
-                        // I want to send it to the primary DPDK
-                        // And the primary will send it to hardware NIC
-
-                        // my_data = some_data;
-                        // self.print_hex_vec(&my_data);
-                        self.send_packet_to_primary(&mut some_data);
-                        self.tx_ready.send(some_data);
-                    },
-                    Err(TryRecvError::Disconnected) => {
-                        warn!("Channel closed by sender. No more to receive." );
-                        end_big_loop = 1;
-                        break;
-                    },
-                    Err(TryRecvError::Empty) => {
-                        break;
-                    },
-                };
-            }
-
-            if end_big_loop == 1 {
-                break;
-            }
-            // Reaching here means something was received from channel and sent to primary, or not.
-
-            // Now we attempt to get an mbuf from shared ring.
-            let mut mbuf: *mut c_void = null_mut();
-            let mut mbuf_ptr: *mut *mut c_void = &mut mbuf;
-
             // Getting mbuf from shared ring
-            while false == self.do_rte_ring_empty(self.receive_ring) {
+            if false == self.do_rte_ring_empty(self.receive_ring) {
                 // Enters here only if mbuf was waiting in the queue
-                if let Ok(mut boxed_tuple) = self.rx_ready.try_recv() {
-                    
-                    // This shouldn't panic because if I am here then ring is not empty.
-                    let rez = self.do_rte_ring_dequeue(mbuf_ptr).unwrap();
-
-                    // let mut boxed_tuple: ArrayTuple = self.rx_ready.recv_timeout(Duration::from_secs(5)).unwrap();
-                    let mut buf_array = &mut boxed_tuple.0;
-
-                    // puts the buf data from mbuf to array
-                    boxed_tuple.1 = self.get_array_from_mbuf(mbuf, &mut buf_array);
-
-                    // self.print_hex_vec(&received_vec);
-                    self.do_rte_mempool_put(mbuf);
-                    // warn!("DEQUEUE success. Size: {}", received_vec.len());
-
-                    // Send the Box containing array to Fc
-                    if let Err(er) = self.to_firecracker.send(boxed_tuple) {
-                        warn!("ERROR: Send to firecracker failed.\n");
-                    }
-
-                    //try to trigger in interrupt for Net device.
-                    self.event_dpdk_secondary.write(1).map_err(|e| {
-                        error!("Failed to signal the Net device from DpdkClient {:?}", e);
-                    });
-                } else {
-                    break;
-                }
+                self.event_dpdk_secondary.write(1).map_err(|e| {
+                    error!("Failed to signal the Net device from DpdkClient {:?}", e);
+                });
             }
         }
     }

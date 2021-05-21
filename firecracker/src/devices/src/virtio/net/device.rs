@@ -152,17 +152,8 @@ pub struct Net {
     pub(crate) mocks: Mocks,
 
     // Added by Mihai
-    //This one sends data to secondary dpdk
-    tx_channel: Sender<ArrayTuple>,
-    //This one receives data from secondary dpdk
-    rx_channel: Receiver<ArrayTuple>,
     //Using this eventFd to know when secondary dpdk has data to send to net device.
     pub(crate) event_secondary_dpdk: EventFd,
-
-    tx_channel_ready: Receiver<ArrayTuple>,
-    rx_channel_ready: Sender<ArrayTuple>,
-
-    rx_box: Option<ArrayTuple>,
 }
 
 impl Net {
@@ -216,28 +207,13 @@ impl Net {
             None
         };
 
-        let tx_frame_buf_boxed: ArrayTuple = Box::new(([0u8; MAX_BUFFER_SIZE], 0));
-        let rx_box: ArrayTuple = Box::new(([0u8; MAX_BUFFER_SIZE], 0));
-
-        let (tx_channel, rx_channel): (Sender<ArrayTuple>, Receiver<ArrayTuple>) = mpsc::channel();
-        let (tx_ready_secondary, tx_ready_fc): (Sender<ArrayTuple>, Receiver<ArrayTuple>) = mpsc::channel();
-
-        // Fc will find the box there when asking the secondary for the first time.
-        tx_ready_secondary.send(tx_frame_buf_boxed).unwrap();
-
-
-        let (tx_to_guest, rx_from_secondary): (Sender<ArrayTuple>, Receiver<ArrayTuple>) = mpsc::channel();
-        let (rx_ready_fc, rx_ready_secondary): (Sender<ArrayTuple>, Receiver<ArrayTuple>) = mpsc::channel();
-
-        // Secondary will find the box when asking fc for the first time.
-        rx_ready_fc.send(rx_box).unwrap();
-
         let event_secondary_dpdk = EventFd::new(libc::EFD_NONBLOCK).map_err(Error::EventFd)?;
 
         let event_backup = event_secondary_dpdk.try_clone().expect("Couldn't duplicate the eventfd_dpdk_secondary!");
+
         // Added by Mihai
         std::thread::spawn(move || {
-            ClientDpdk::new_with_receiver(rx_channel, tx_to_guest, event_backup, tx_ready_secondary, rx_ready_secondary).start_dispatcher()
+            ClientDpdk::new_with_receiver(event_backup).start_dispatcher()
         });
 
         Ok(Net {
@@ -265,12 +241,7 @@ impl Net {
 
             #[cfg(test)]
             mocks: Mocks::default(),
-            tx_channel,
-            rx_channel: rx_from_secondary,
             event_secondary_dpdk: event_secondary_dpdk,
-            tx_channel_ready: tx_ready_fc,
-            rx_channel_ready: rx_ready_fc,
-            rx_box: None,
         })
     }
 
@@ -330,43 +301,12 @@ impl Net {
     // rate limiting budget.
     // Returns true on successful frame delivery.
     fn rate_limited_rx_single_frame(&mut self) -> bool {
-
-        // Removed by Mihai
-        // If limiter.consume() fails it means there is no more TokenType::Ops
-        // budget and rate limiting is in effect.
-        // if !self.rx_rate_limiter.consume(1, TokenType::Ops) {
-        //     METRICS.net.rx_rate_limiter_throttled.inc();
-        //     return false;
-        // }
-        
-        // Removed by Mihai
-        // If limiter.consume() fails it means there is no more TokenType::Bytes
-        // budget and rate limiting is in effect.
-        // if !self
-        //     .rx_rate_limiter
-        //     .consume(self.rx_bytes_read as u64, TokenType::Bytes)
-        // {
-        //     // revert the OPS consume()
-        //     self.rx_rate_limiter.manual_replenish(1, TokenType::Ops);
-        //     METRICS.net.rx_rate_limiter_throttled.inc();
-        //     return false;
-        // }
         
 
         // Attempt frame delivery.
         // Info by Mihai
         // If return is ok, then self.rx_deferred_irqs is set to TRUE.
         let success = self.write_frame_to_guest();
-
-        //Removed by Mihai
-        // Undo the tokens consumption if guest delivery failed.
-        // if !success {
-        //     // revert the OPS consume()
-        //     self.rx_rate_limiter.manual_replenish(1, TokenType::Ops);
-        //     // revert the BYTES consume()
-        //     self.rx_rate_limiter
-        //         .manual_replenish(self.rx_bytes_read as u64, TokenType::Bytes);
-        // }
 
         // Info by Mihai
         // Only way this could return FALSE is if write_frame_to_guest fails with
@@ -390,11 +330,7 @@ impl Net {
         })?;
         let head_index = head_descriptor.index;
 
-        // I got left here
-
-        let frame_buf: &[u8; MAX_BUFFER_SIZE] = &self.rx_box.as_ref().unwrap().0;
-
-        let mut frame_slice = &frame_buf[..self.rx_bytes_read];
+        let mut frame_slice = &self.rx_frame_buf[..self.rx_bytes_read];
         let frame_len = frame_slice.len();
         let mut maybe_next_descriptor = Some(head_descriptor);
         while let Some(descriptor) = &maybe_next_descriptor {
@@ -446,8 +382,18 @@ impl Net {
             METRICS.net.rx_bytes_count.add(frame_len);
             METRICS.net.rx_packets_count.inc();
         }
-        // Send the box back to secondary so it knows it is available for writing.
-        self.rx_channel_ready.send(self.rx_box.take().unwrap());
+
+        // Warning, trebuie avut grija la cazurile cu erori pe EmptyQueue sau AddUsed
+
+        // Daca ai AddUsed, pui pachetul in rx_frame_buf si arunci mbuf-ul.
+        // Data viitoare cand vrei sa scrii, verifici daca ai deferred frame
+        // SI daca ai avut deferred frame atunci copiezi din rx_frame_buf in guest, nu din mbuf in guest.
+
+        // Vezi ca self.deferred_frame e resetat inainte sa intri iar in functia asta!
+
+        // TO DO: dequeue mbuf from receive ring, write the mbuf inside the guest, free the mbuf.
+        // Don't forget to add vnet_header before writing it to guest.
+
         result
     }
 
@@ -538,6 +484,10 @@ impl Net {
     /// Replacement for read_from_mmds_or_tap
     /// Reads the Vec<u8> from secondary using the Secondary to FC channel.
     fn read_from_secondary(&mut self) -> result::Result<usize, DeviceError> {
+
+        // TO DO
+        // Trebuie sa pastrezi mbuf-ul in Net, pana il trimiti in functia urmatoare.
+
         //Try to read non-blocking
         match self.rx_channel.try_recv() {
             Ok(mut some_data) => {
@@ -710,18 +660,15 @@ impl Net {
                 break;
             }
 
-            let mut boxed_tuple: ArrayTuple = self.tx_channel_ready.recv_timeout(Duration::from_secs(5)).unwrap();
-            let mut frame_buf = &mut boxed_tuple.0;
-
             read_count = 0;
             // Copy buffer from across multiple descriptors.
             // TODO(performance - Issue #420): change this to use `writev()` instead of `write()`
             // and get rid of the intermediate buffer.
             for (desc_addr, desc_len) in self.tx_iovec.drain(..) {
-                let limit = cmp::min((read_count + desc_len) as usize, frame_buf.len());
+                let limit = cmp::min((read_count + desc_len) as usize, self.tx_frame_buf.len());
 
                 let read_result = mem.read_slice(
-                    &mut frame_buf[read_count..limit as usize],
+                    &mut self.tx_frame_buf[read_count..limit as usize],
                     desc_addr,
                 );
                 match read_result {
@@ -742,43 +689,8 @@ impl Net {
                 }
             }
 
-            // DEBUG
-            // Added by Mihai
-            // Print the whole frame before sending to Secondary
-            // Check VNET header and TCP Checksum.
-            // let full_frame: Vec<u8> = self.tx_frame_buf[..read_count].to_vec();
-            // warn!("Read count is: {}", read_count);
-            
-            // DEBUG
-            // if read_count >= 32000 {
-            //     print_hex_vec(&full_frame);
-            //     panic!("I got my 1526 vec for analyzing.");
-            // }
-
-            //Added by Mihai
-            // I need to use self, so I will send from here.Receiver
-            // let my_vec: Vec<u8> = self.tx_frame_buf[12..read_count].to_vec();
-            // warn!("Sending to SECONDARY, length: {}", my_vec.len());
-            // self.tx_channel.send(my_vec).unwrap();
-
-            boxed_tuple.1 = read_count;
-            self.tx_channel.send(boxed_tuple).unwrap();
-
-
-            // Removed by Mihai - no longer sending on the TAP interface.
-            // let frame_consumed_by_mmds = Self::write_to_mmds_or_tap(
-            //     self.mmds_ns.as_mut(),
-            //     &mut self.tx_rate_limiter,
-            //     &self.tx_frame_buf[..read_count],
-            //     &mut self.tap,
-            //     self.guest_mac,
-            // )
-            // .unwrap_or_else(|_| false);
-
-            // if frame_consumed_by_mmds && !self.rx_deferred_frame {
-            //     // MMDS consumed this frame/request, let's also try to process the response.
-            //     process_rx_for_mmds = true;
-            // }
+            // TO DO: Get an mbuf, read the data from guest and put it inside the mbuf.
+            // Then send the mbuf.
 
             tx_queue
                 .add_used(mem, head_index, 0)
@@ -793,13 +705,6 @@ impl Net {
         }
 
         Ok(())
-        // Removed by Mihai
-        // An incoming frame for the MMDS may trigger the transmission of a new message.
-        // if process_rx_for_mmds {
-        //     self.process_rx()
-        // } else {
-        //     Ok(())
-        // }
     }
 
     /// Updates the parameters for the rate limiters
@@ -830,20 +735,6 @@ impl Net {
             // Added by Mihai - removed the rate limiter check.
             self.resume_rx().unwrap_or_else(report_net_event_fail);
         }
-        
-        // Removed by Mihai
-        // if let Err(e) = self.queue_evts[RX_INDEX].read() {
-        //     // rate limiters present but with _very high_ allowed rate
-        //     error!("Failed to get rx queue event: {:?}", e);
-        //     METRICS.net.event_fails.inc();
-        // } else {
-        //     // If the limiter is not blocked, resume the receiving of bytes.
-        //     if !self.rx_rate_limiter.is_blocked() {
-        //         self.resume_rx().unwrap_or_else(report_net_event_fail);
-        //     } else {
-        //         METRICS.net.rx_rate_limiter_throttled.inc();
-        //     }
-        // }
     }
 
     pub fn process_tap_rx_event(&mut self) {
@@ -862,13 +753,6 @@ impl Net {
             METRICS.net.no_rx_avail_buffer.inc();
             return;
         }
-
-        // While limiter is blocked, don't process any more incoming.
-        // Removed by Mihai
-        // if self.rx_rate_limiter.is_blocked() {
-        //     METRICS.net.rx_rate_limiter_throttled.inc();
-        //     return;
-        // }
 
         if self.rx_deferred_frame
         // Process a deferred frame first if available. Don't read from tap again

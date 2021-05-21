@@ -9,3 +9,19 @@ primit pachete de la primary, si daca am primat voi notifica net device-ul
 cum am facut si pana acum.
 
 Structura Net va contine acum DpdkClient
+---------------------------------------------------------------------------
+
+atentie la do_write_frame_to_guest, am mentionat acolo un warning.
+
+S-ar putea sa fie o problema cu al doilea thread, nu stiu ce se intampla daca dau
+mai multe semnale decat e nevoie.
+
+De asemenea, nu stiu daca merge sa folosesc DPDK in paralel pe cele doua threaduri.
+Nu prea sunt sincronizate, dar verific doar daca ring-ul e gol si daca nu e gol ii dau un semnal.
+In cel mai rau caz dau doar niste semnale in plus, dar eventfd-ul este level triggered deci n-ar trb sa fie probleme.
+
+Cazul RX:
+Problema 2 este ca trebuie sa pastrez mbuf-ul in Net device,
+pentru ca scrierea in memorie se face in urmatoarea functie apelata, daca nu e vreo eroare.
+
+Ori pastrez mbuf-ul, ori il copiez mereu in alt array si folosesc array-ul ala pt scriere.
