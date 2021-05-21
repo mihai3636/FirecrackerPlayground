@@ -27,3 +27,17 @@ vezi de ce atunci cand dai cu udp de la microVM spre host, tot se intampla asta:
 
 Verifica daca atunci cand primeste pachete de la host catre VM, mbuf-urile folosesc
 campul ala de next. Pt ca diferenta de throughput e mare intre cele doua directii.
+
+-------------------------------
+
+Am reparar rte_ring_enqueue failed, marind rig_size-ul din primary.
+Am imbunatatit f putin throughputul prin modificari in primary:
+rte_ring_size = 2048
+RX_RING_SIZE 2048
+TX_RING_SIZE 2048
+
+Am izolat cpu 1 prin parametrii de la kernel.
+Am facut hugepages de 1GB
+
+Strategy_1 se misca ceva mai bine decat Strategy_1_3 mai ales pe pachete UDP.
+------------------------------------------------
