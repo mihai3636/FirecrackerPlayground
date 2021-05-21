@@ -1,0 +1,11 @@
+O noua abordare, sper sa fie mai buna ca Strategy_1_3.
+
+Acum voi copia din memoria guest-ului direct intr-un mbuf.
+Respectiv voi scrie din mbuf direct in memoria guest-ului, evitand astfel
+orice intermediar.
+
+Va mai fi nevoie sa pastrez al doilea thread pentru a verifica daca am
+primit pachete de la primary, si daca am primat voi notifica net device-ul
+cum am facut si pana acum.
+
+Structura Net va contine acum DpdkClient
