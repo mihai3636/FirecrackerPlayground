@@ -51,6 +51,8 @@ pub struct ClientDpdk {
 
     event_dpdk_secondary: EventFd,
 }
+unsafe impl Send for ClientDpdk {}
+unsafe impl Sync for ClientDpdk {}
 
 impl ClientDpdk {
     pub fn new_with_receiver(
@@ -58,7 +60,7 @@ impl ClientDpdk {
     ) -> ClientDpdk {
 
         warn!("New client has been created! Yeey!");
-        ClientDpdk {
+        let mut client = ClientDpdk {
             receive_ring_name: CString::new("PRI_2_SEC").expect("Receive ring name failed.\n"),
             send_ring_name: CString::new("SEC_2_PRI").expect("Send ring name failed.\n"),
             mempool_name: CString::new("MSG_POOL").expect("Mempool name failed.\n"),
@@ -66,7 +68,25 @@ impl ClientDpdk {
             send_ring: null_mut(),
             mempool: null_mut(),
             event_dpdk_secondary: event_dpdk_secondary,
-        }
+        };
+
+        // Calling the init functions.
+        // I do this here so I won't have to use mutable self functions on the object.
+        // This way I can hold a reference shared across threads.
+
+        client.do_rte_eal_init().expect("Failled rte_eal_init call");
+        warn!("rte_eal_init success");
+
+        client.check_proc_type().expect("DPDK Process type should be SECONDARY: --proc-type=secondary");
+        warn!("process type success");
+
+        client.attach_to_rings();
+        warn!("rings attached success");
+
+        client.attach_to_mempool();
+        warn!("Mempool attached success");
+
+        client
     }
 
     fn print_hex_vec(&self, my_vec: &Vec<u8>) {
@@ -169,7 +189,7 @@ impl ClientDpdk {
 
     // Returns true if the given ring is empty
     // Returns false if the ring is not empty
-    fn do_rte_ring_empty(&self, pt_ring: *mut rte_ring) -> bool {
+    pub fn do_rte_ring_empty(&self, pt_ring: *mut rte_ring) -> bool {
         let rez: i32 = unsafe { rte_ring_empty_real(self.receive_ring) };
         if rez == 1 {
             return true;
@@ -177,7 +197,7 @@ impl ClientDpdk {
         false
     }
 
-    fn do_rte_ring_dequeue(&self, obj_p: *mut *mut c_void) -> Result<()> {
+    pub fn do_rte_ring_dequeue(&self, obj_p: *mut *mut c_void) -> Result<()> {
 
         let rez = unsafe { rte_ring_dequeue_real(self.receive_ring, obj_p) };
         // Returns
@@ -193,7 +213,7 @@ impl ClientDpdk {
 
     /// Calls the rte_ring_enqueue binding
     /// Returns error if function fails. (not enough room in the ring to enqueue)
-    fn do_rte_ring_enqueue(&self, obj: *mut c_void) -> Result<()> {
+    pub fn do_rte_ring_enqueue(&self, obj: *mut c_void) -> Result<()> {
         // We are going to enqueue only on the SEND ring.
 
         let rez = unsafe { rte_ring_enqueue_real(self.send_ring, obj) };
@@ -208,14 +228,14 @@ impl ClientDpdk {
     /// Calls the rte_mempool_put binding
     /// The binding returns void so the wrapper returns nothing.
     /// No information about errors. Probably in errno?
-    fn do_rte_mempool_put(&self, obj: *mut c_void) {
+    pub fn do_rte_mempool_put(&self, obj: *mut c_void) {
         unsafe { rte_mempool_put_real(self.mempool, obj) };
     }
 
     /// Calls the rte_mempool_get binding
     /// Returns address of mempool buffer /object?
     /// Returns error if function fails. (no object available from mempool)
-    fn do_rte_mempool_get(&self) -> Result<*mut c_void> {
+    pub fn do_rte_mempool_get(&self) -> Result<*mut c_void> {
         let mut my_buffer: *mut c_void = null_mut();
         let my_buffer_addr: *mut *mut c_void = &mut my_buffer;
 
@@ -343,21 +363,9 @@ impl ClientDpdk {
         // warn!("ENQUEUE success");
     }
 
-    pub fn start_dispatcher(&mut self) {
-
-        self.do_rte_eal_init().expect("Failled rte_eal_init call");
-        warn!("rte_eal_init success");
-        
-        self.check_proc_type().expect("DPDK Process type should be SECONDARY: --proc-type=secondary");
-        warn!("process type success");
-        
-        self.attach_to_rings();
-        warn!("rings attached success");
-
-        self.attach_to_mempool();
-        warn!("Mempool attached success");
-
-        // let mut my_data: Vec<u8> = Vec::new(); 
+    /// Each time something appears on the queue, it will signal Fc
+    /// to start the receive routine.
+    pub fn start_dispatcher(&self) {
 
         loop {
             // We are breaking the loop if Firecracker thread kills the channel.

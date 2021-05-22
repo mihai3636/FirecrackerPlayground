@@ -5,7 +5,7 @@ Respectiv voi scrie din mbuf direct in memoria guest-ului, evitand astfel
 orice intermediar.
 
 Va mai fi nevoie sa pastrez al doilea thread pentru a verifica daca am
-primit pachete de la primary, si daca am primat voi notifica net device-ul
+primit pachete de la primary, si daca am primit voi notifica net device-ul
 cum am facut si pana acum.
 
 Structura Net va contine acum DpdkClient
@@ -25,3 +25,16 @@ Problema 2 este ca trebuie sa pastrez mbuf-ul in Net device,
 pentru ca scrierea in memorie se face in urmatoarea functie apelata, daca nu e vreo eroare.
 
 Ori pastrez mbuf-ul, ori il copiez mereu in alt array si folosesc array-ul ala pt scriere.
+--------------------------------------------------------------------------------
+
+Am terminat implementarea si pt TX si pt RX
+La RX copiez din mbuf in rx_buf_frame momentan, a fost mai rapid de implementat
+
+Din motive inimaginabile, aceasta strategie are un throughput putin mai mic decat celelalte.
+Pros: Nu mai sunt atat de multe pachete pierdute, aproape niciunul.
+Nu imi dau seama un e bottleneck-ul.
+
+Idei:
+
+sleep in secondary thread dupa ce da un semnal.
+verificat mbuf->next atunci cand primeste un pachet, poate leaga el pachetele ca nebunul.

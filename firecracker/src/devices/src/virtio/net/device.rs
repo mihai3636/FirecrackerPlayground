@@ -40,10 +40,24 @@ use vm_memory::{ByteValued, Bytes, GuestAddress, GuestMemoryError, GuestMemoryMm
 // added by Mihai
 use std::sync::mpsc::{Sender, Receiver, TryRecvError};
 use std::sync::mpsc;
-use dpdk_component::client::*;
 use std::boxed::Box;
 use std::option;
 use std::time::Duration;
+
+use dpdk_component::client::{
+    ClientDpdk,
+};
+
+use dpdk_component::bindingsMbuf::{
+    rte_mbuf,
+};
+
+use std::ptr::{
+    null_mut,
+    copy_nonoverlapping,
+};
+
+use std::ffi::c_void;
 
 use crate::virtio::net::ArrayTuple;
 
@@ -154,6 +168,7 @@ pub struct Net {
     // Added by Mihai
     //Using this eventFd to know when secondary dpdk has data to send to net device.
     pub(crate) event_secondary_dpdk: EventFd,
+    pub(crate) client: Arc<ClientDpdk>,
 }
 
 impl Net {
@@ -211,9 +226,13 @@ impl Net {
 
         let event_backup = event_secondary_dpdk.try_clone().expect("Couldn't duplicate the eventfd_dpdk_secondary!");
 
+        let cl = ClientDpdk::new_with_receiver(event_backup);
+        let client = Arc::new(cl);
+        let client_clone = client.clone();
+
         // Added by Mihai
         std::thread::spawn(move || {
-            ClientDpdk::new_with_receiver(event_backup).start_dispatcher()
+            client_clone.start_dispatcher()
         });
 
         Ok(Net {
@@ -242,6 +261,7 @@ impl Net {
             #[cfg(test)]
             mocks: Mocks::default(),
             event_secondary_dpdk: event_secondary_dpdk,
+            client: client
         })
     }
 
@@ -383,6 +403,10 @@ impl Net {
             METRICS.net.rx_packets_count.inc();
         }
 
+        // TIPS IF U IMPLEMENT BY SAVING MBUF INTO VNET
+        // SO far u did not save the mbuf and did an extra copy.
+        //Advantage: u release the mbuf quicker
+
         // Warning, trebuie avut grija la cazurile cu erori pe EmptyQueue sau AddUsed
 
         // Daca ai AddUsed, pui pachetul in rx_frame_buf si arunci mbuf-ul.
@@ -488,30 +512,65 @@ impl Net {
         // TO DO
         // Trebuie sa pastrezi mbuf-ul in Net, pana il trimiti in functia urmatoare.
 
-        //Try to read non-blocking
-        match self.rx_channel.try_recv() {
-            Ok(mut some_data) => {
-                // some_data is Box<ArrayTuple>
-                let length = some_data.1;
+        // Get an mbuf from the ring
+        let mut mbuf: *mut c_void = null_mut();
+        let mbuf_ptr: *mut *mut c_void = &mut mbuf;
 
-                // warn!("Reading from SECONDARY. Size: {}", length);
-                // init the vnet header first
-                init_vnet_hdr(&mut some_data.0);
+        let res = self.client.do_rte_ring_dequeue(mbuf_ptr);
+        if let Err(_er) = res {
+            // There was nothing in the ring.
+            // warn!("DEQ FAILED");
+            return Err(DeviceError::SecondaryEmpty);
+        }
 
-                self.rx_box.replace(some_data);
+        init_vnet_hdr(&mut self.rx_frame_buf[..MAX_BUFFER_SIZE]);
 
-                // I am going to send the box back after firecracker writes this box into guest memory
-                return Ok(length + vnet_hdr_len());
-            },
-            Err(TryRecvError::Disconnected) => {
-                warn!("Secondary to Firecracker channel has been closed by Secondary. ERROR" );
-                return Err(DeviceError::SecondaryClosed);
-            },
-            Err(TryRecvError::Empty) => {
-                // warn!("Reading from SECONDARY EMPTY");
-                return Err(DeviceError::SecondaryEmpty);
-            },
-        };
+        // Copy data from mbuf into rx_frame_buf
+        // Possible improvement: Do not copy, hold the mbuf into Net device.
+        // But you have to check deferred frame corner case, when you cannot write
+        // directly into guest.
+        let read_count;
+    
+        unsafe {
+            let mbuf = mbuf as *mut rte_mbuf;
+            let data_addr = (*mbuf).buf_addr;
+            let real_data_addr = data_addr.offset((*mbuf).data_off as isize);
+
+            let dest = &mut self.rx_frame_buf[vnet_hdr_len()] as *mut u8;
+            let size = (*mbuf).data_len as usize;
+
+            // copy from mbuf into rx_frame_buf on 12th pos
+            copy_nonoverlapping(real_data_addr as *const u8, dest, size);
+            read_count = size + vnet_hdr_len();
+        }
+
+        // Because I am copying mbuf inside the rx_frame_buf, I can release the mbuf now.
+        self.client.do_rte_mempool_put(mbuf);
+
+        Ok(read_count)
+        // match self.rx_channel.try_recv() {
+        //     Ok(mut some_data) => {
+        //         // some_data is Box<ArrayTuple>
+        //         let length = some_data.1;
+
+        //         // warn!("Reading from SECONDARY. Size: {}", length);
+        //         // init the vnet header first
+        //         init_vnet_hdr(&mut some_data.0);
+
+        //         self.rx_box.replace(some_data);
+
+        //         // I am going to send the box back after firecracker writes this box into guest memory
+        //         return Ok(length + vnet_hdr_len());
+        //     },
+        //     Err(TryRecvError::Disconnected) => {
+        //         warn!("Secondary to Firecracker channel has been closed by Secondary. ERROR" );
+        //         return Err(DeviceError::SecondaryClosed);
+        //     },
+        //     Err(TryRecvError::Empty) => {
+        //         // warn!("Reading from SECONDARY EMPTY");
+        //         return Err(DeviceError::SecondaryEmpty);
+        //     },
+        // };
     }
 
     // We currently prioritize packets from the MMDS over regular network packets.
@@ -660,15 +719,38 @@ impl Net {
                 break;
             }
 
+            // Get an mbuf from mempool
+            let mut mbuf_fresh = self.client.do_rte_mempool_get();
+            while let Err(_er) = mbuf_fresh {
+                // Fails if not enough entries are available.
+                warn!("rte_mempool_get failed, trying again!");
+                mbuf_fresh = self.client.do_rte_mempool_get();
+            }
+            // It should never be an error now.
+            let my_mbuf = mbuf_fresh.unwrap();
+            let mbuf_struct: *mut rte_mbuf = my_mbuf as *mut rte_mbuf;
+
+            // I will put the packet from guest memory inside this slice
+            let mbuf_data = unsafe {
+                let buf_addr: *mut u8 = (*mbuf_struct).buf_addr as *mut u8;
+
+                // I get a reference to the begining of data inside the mbuf and return it
+                let real_buf_addr = buf_addr.offset(((*mbuf_struct).data_off) as isize);
+                // size of packet - headroom
+                let mbuf_data_slice = std::slice::from_raw_parts_mut(real_buf_addr, 65500 - 128);
+                mbuf_data_slice
+            };
+
+
             read_count = 0;
             // Copy buffer from across multiple descriptors.
             // TODO(performance - Issue #420): change this to use `writev()` instead of `write()`
             // and get rid of the intermediate buffer.
             for (desc_addr, desc_len) in self.tx_iovec.drain(..) {
-                let limit = cmp::min((read_count + desc_len) as usize, self.tx_frame_buf.len());
+                let limit = cmp::min((read_count + desc_len) as usize, mbuf_data.len());
 
                 let read_result = mem.read_slice(
-                    &mut self.tx_frame_buf[read_count..limit as usize],
+                    &mut mbuf_data[read_count..limit as usize],
                     desc_addr,
                 );
                 match read_result {
@@ -689,8 +771,23 @@ impl Net {
                 }
             }
 
-            // TO DO: Get an mbuf, read the data from guest and put it inside the mbuf.
-            // Then send the mbuf.
+            // Set necessary fields of mbuf
+            unsafe {
+                // Get rid of vnet header by increasing the offset
+                // This offset points at the beginning of data.
+                (*mbuf_struct).data_off = (*mbuf_struct).data_off + vnet_hdr_len() as u16;
+                (*mbuf_struct).data_len = (read_count - vnet_hdr_len() as usize) as u16;
+                (*mbuf_struct).pkt_len = (read_count - vnet_hdr_len() as usize) as u32;
+                (*mbuf_struct).nb_segs = 1;
+            }
+
+            // Now I have to enqueue the mbuf
+            let mut res = self.client.do_rte_ring_enqueue(my_mbuf);
+            while let Err(_er) = res {
+                // It fails if not enough room in the ring
+                warn!("rte_ring_enqueue failed, trying again.");
+                res = self.client.do_rte_ring_enqueue(my_mbuf);
+            }
 
             tx_queue
                 .add_used(mem, head_index, 0)
