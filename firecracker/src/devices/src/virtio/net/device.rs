@@ -50,6 +50,7 @@ use dpdk_component::client::{
 
 use dpdk_component::bindingsMbuf::{
     rte_mbuf,
+    PKT_TX_TCP_CKSUM,
 };
 
 use std::ptr::{
@@ -776,6 +777,7 @@ impl Net {
                 (*mbuf_struct).data_len = (read_count - vnet_hdr_len() as usize) as u16;
                 (*mbuf_struct).pkt_len = (read_count - vnet_hdr_len() as usize) as u32;
                 (*mbuf_struct).nb_segs = 1;
+                (*mbuf_struct).ol_flags = PKT_TX_TCP_CKSUM;
             }
 
             if burst_size > index_array + 1 {
@@ -786,7 +788,7 @@ impl Net {
                  // Now I have to enqueue the mbuf
                 self.client.enqueue_burst_untill_done(array_mbufs.as_mut_ptr(), burst_size as u32, null_mut());
                 index_array = 0;
-                warn!("Enq: {}", burst_size);
+                // warn!("Enq: {}", burst_size);
             }
 
             tx_queue
@@ -798,7 +800,7 @@ impl Net {
         if index_array != 0 {
             let nr_mbufs: u32 = index_array as u32;
             self.client.enqueue_burst_untill_done(array_mbufs.as_mut_ptr(), nr_mbufs, null_mut());
-            warn!("Enq: {}", nr_mbufs);
+            // warn!("Enq: {}", nr_mbufs);
         }
     
         if raise_irq {
