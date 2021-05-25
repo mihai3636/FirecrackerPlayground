@@ -12901,6 +12901,21 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
+    pub fn rte_ring_enqueue_burst_real(
+        r: *mut rte_ring,
+        obj_table: *mut *mut ::std::os::raw::c_void,
+        n: ::std::os::raw::c_uint,
+        free_space: *mut ::std::os::raw::c_uint) -> ::std::os::raw::c_uint;
+}
+extern "C" {
+    pub fn rte_ring_dequeue_burst_real(
+        r: *mut rte_ring,
+        obj_table: *mut *mut ::std::os::raw::c_void,
+        n: ::std::os::raw::c_uint,
+        available: *mut ::std::os::raw::c_uint
+    ) -> ::std::os::raw::c_uint;
+}
+extern "C" {
     pub fn rte_ring_enqueue_real(
         r: *mut rte_ring,
         obj: *mut ::std::os::raw::c_void,

@@ -21,3 +21,11 @@ void rte_mempool_put_real(struct rte_mempool *mp, void *obj) {
 int rte_ring_empty_real(struct rte_ring *r) {
     return rte_ring_empty(r);
 }
+
+unsigned int rte_ring_enqueue_burst_real(struct rte_ring *r, void* const* obj_table, unsigned int n, unsigned int* free_space) {
+    return rte_ring_enqueue_burst(r, obj_table, n, free_space);
+}
+
+unsigned int rte_ring_dequeue_burst_real(struct rte_ring *r, void **obj_table, unsigned int n, unsigned int* available) {
+    return rte_ring_dequeue_burst(r, obj_table, n, available);
+}

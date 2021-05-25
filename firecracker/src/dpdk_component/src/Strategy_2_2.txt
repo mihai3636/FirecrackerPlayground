@@ -6,3 +6,13 @@ Primary nu mai are loc sa puna pachetele in coada, pt ca Firecracker
 nu goleste coada la timp.
 
 Idee: sa adaug mecanism de burst enq / deq si in Firecracker.
+-----------------------------------------------------------------
+
+update 1
+
+am facut burst_enq pt trimitere (microVM TX)
+Din cate observ coada nu ajunge niciodata plina.
+
+in continuare coada (rte ring) devina plina la microVM RX
+
+---------------------------------------------------------------------

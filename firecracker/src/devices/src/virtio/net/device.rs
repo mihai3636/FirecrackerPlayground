@@ -678,25 +678,27 @@ impl Net {
         let mut raise_irq = false;
         let tx_queue = &mut self.queues[TX_INDEX];
 
+        // Plan: creez un array de lungime fixa in care imi pun mbuf-urile
+        // Citesc din guest -> pun in mbuf -> pun in array
+        // Cand se unmple array, dau enqueue_burst (cat timp dai enqueue burst?)
+        // Apoi continui iar sa citesc din guest si repet procesul
+        const burst_size: usize = 512;
+        let mut array_mbufs = [null_mut(); burst_size];
+        let mut index_array = 0;
+
         while let Some(head) = tx_queue.pop(mem) {
-            // If limiter.consume() fails it means there is no more TokenType::Ops
-            // budget and rate limiting is in effect.
-            if !self.tx_rate_limiter.consume(1, TokenType::Ops) {
-                // Stop processing the queue and return this descriptor chain to the
-                // avail ring, for later processing.
-                tx_queue.undo_pop();
-                METRICS.net.tx_rate_limiter_throttled.inc();
-                break;
-            }
 
             let head_index = head.index;
             let mut read_count = 0;
             let mut next_desc = Some(head);
+            
+            let mut was_nothing_to_read = 0;
 
             self.tx_iovec.clear();
             while let Some(desc) = next_desc {
                 if desc.is_write_only() {
                     self.tx_iovec.clear();
+                    was_nothing_to_read = 1;
                     break;
                 }
                 self.tx_iovec.push((desc.addr, desc.len as usize));
@@ -704,19 +706,14 @@ impl Net {
                 next_desc = desc.next_descriptor();
             }
 
-            // If limiter.consume() fails it means there is no more TokenType::Bytes
-            // budget and rate limiting is in effect.
-            if !self
-                .tx_rate_limiter
-                .consume(read_count as u64, TokenType::Bytes)
-            {
-                // revert the OPS consume()
-                self.tx_rate_limiter.manual_replenish(1, TokenType::Ops);
-                // Stop processing the queue and return this descriptor chain to the
-                // avail ring, for later processing.
-                tx_queue.undo_pop();
-                METRICS.net.tx_rate_limiter_throttled.inc();
-                break;
+            // Would pointlessly get an mbuf if there is nothing to read.
+            if was_nothing_to_read == 1 {
+                tx_queue
+                    .add_used(mem, head_index, 0)
+                    .map_err(DeviceError::QueueError)?;
+                raise_irq = true;
+                warn!("TX: write only case");
+                continue;
             }
 
             // Get an mbuf from mempool
@@ -781,12 +778,15 @@ impl Net {
                 (*mbuf_struct).nb_segs = 1;
             }
 
-            // Now I have to enqueue the mbuf
-            let mut res = self.client.do_rte_ring_enqueue(my_mbuf);
-            while let Err(_er) = res {
-                // It fails if not enough room in the ring
-                warn!("rte_ring_enqueue failed, trying again.");
-                res = self.client.do_rte_ring_enqueue(my_mbuf);
+            if burst_size > index_array + 1 {
+                array_mbufs[index_array] = my_mbuf;
+                index_array = index_array + 1;
+            } else {
+                // Am umplut array-ul cu mbuf-uri si trebuie sa-l trimit.
+                 // Now I have to enqueue the mbuf
+                self.client.enqueue_burst_untill_done(array_mbufs.as_mut_ptr(), burst_size as u32, null_mut());
+                index_array = 0;
+                warn!("Enq: {}", burst_size);
             }
 
             tx_queue
@@ -794,7 +794,13 @@ impl Net {
                 .map_err(DeviceError::QueueError)?;
             raise_irq = true;
         }
-
+    
+        if index_array != 0 {
+            let nr_mbufs: u32 = index_array as u32;
+            self.client.enqueue_burst_untill_done(array_mbufs.as_mut_ptr(), nr_mbufs, null_mut());
+            warn!("Enq: {}", nr_mbufs);
+        }
+    
         if raise_irq {
             self.signal_used_queue()?;
         } else {

@@ -12,6 +12,8 @@ use crate::bindingsMbuf::{
     rte_ring_enqueue_real,
     rte_mempool_put_real,
     rte_ring_empty_real,
+    rte_ring_enqueue_burst_real,
+    rte_ring_dequeue_burst_real,
 };
 
 use utils::eventfd::EventFd;
@@ -25,7 +27,7 @@ use std::sync::mpsc::{Receiver, channel, TryRecvError, Sender};
 use std::time;
 
 use std::ffi::CString;
-use std::os::raw::c_void;
+use std::os::raw::{c_void, c_uint};
 use std::ptr::{copy, null_mut, copy_nonoverlapping};
 
 use logger::{warn, error};
@@ -209,6 +211,68 @@ impl ClientDpdk {
         }
 
         Ok(())
+    }
+
+    /// Blocks untill all buffer has been enqueued.
+    /// First param: address of an array containings mbufs
+    /// Second param: number of mbufs in the array
+    /// Third param can be NULL, check DPDK docs.
+    pub fn enqueue_burst_untill_done(
+        &self,
+        obj_table: *mut *mut c_void,
+        n: c_uint,
+        free_space: *mut c_uint
+    ) {
+        let mut current_index = 0;
+        let mut so_far = 0;
+        let total = n;
+        let mut nr_to_enq = n;
+        let mut pointer_to_mbuf_pointers = obj_table;
+
+        while so_far != total {
+            let rez = self.do_rte_ring_enqueue_burst(pointer_to_mbuf_pointers, nr_to_enq, null_mut()).unwrap();
+            so_far += rez;
+            // There are less elements to enq now.
+            nr_to_enq = nr_to_enq - rez;
+            pointer_to_mbuf_pointers = unsafe { pointer_to_mbuf_pointers.offset(rez as isize) };
+
+            if so_far != total {
+                warn!("Inside loop");
+            }
+        }
+    }
+
+    /// Calls the rte_ring_enqueue_burst_real binding
+    /// First param: address of an array containings mbufs
+    /// Second param: number of mbufs in the array
+    /// Third param can be NULL, check DPDK docs.
+    /// Returns number of mbufs successfully inserted.
+    pub fn do_rte_ring_enqueue_burst(
+        &self,
+        obj_table: *mut *mut c_void,
+        n: c_uint,
+        free_space: *mut c_uint
+    ) -> Result<u32> {
+
+        let rez = unsafe { rte_ring_enqueue_burst_real(self.send_ring, obj_table, n, free_space) };
+        // No error code returned
+        Ok(rez)
+    }
+
+    /// Calls the rte_ring_dequeue_burst_real binding
+    /// First param: address of an array containings mbufs
+    /// Second param: Maximum number of mbufs it is capable to dequeue.
+    /// Third param can be NULL, check DPDK docs.
+    /// Returns number of mbufs successfully inserted.
+    pub fn do_rte_ring_dequeue_burst(
+        &self,
+        obj_table: *mut *mut c_void,
+        n: c_uint,
+        available: *mut c_uint,
+    ) -> Result<u32> {
+        let rez = unsafe { rte_ring_dequeue_burst_real(self.send_ring, obj_table, n, available) };
+        // No error code is returned
+        Ok(rez)
     }
 
     /// Calls the rte_ring_enqueue binding
