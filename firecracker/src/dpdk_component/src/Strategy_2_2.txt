@@ -1,0 +1,8 @@
+Incercam sa gasim bottlneck-ul din Strategy_2
+
+Din ce am observat, e o problema cand trimit pachete catre microVM, pachete UDP.
+
+Primary nu mai are loc sa puna pachetele in coada, pt ca Firecracker
+nu goleste coada la timp.
+
+Idee: sa adaug mecanism de burst enq / deq si in Firecracker.
