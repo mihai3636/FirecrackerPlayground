@@ -28,8 +28,8 @@ use std::sync::mpsc::{Receiver, channel, TryRecvError, Sender};
 use std::time;
 
 use std::ffi::CString;
-use std::os::raw::{c_void, c_uint};
-use std::ptr::{copy, null_mut, copy_nonoverlapping};
+use std::os::raw::{c_void, c_uint, c_char};
+use std::ptr::{copy, null_mut, copy_nonoverlapping,};
 
 use logger::{warn, error};
 use crate::MAX_BUFFER_SIZE;
@@ -102,12 +102,19 @@ impl ClientDpdk {
         warn!("{}", output);
     }
 
-    fn do_rte_pktmbuf_prepend(&self, struct_pt: *mut rte_mbuf, len: u16) -> Result(*mut u8) {
-        let rez = unsafe { rte_pktmbuf_prepend_real(struct_pt, len) };
-        if is_null(rez) {
+    /// Just adds some more space at the begining of the mbuf data. 
+    /// If it does not have space, it will return an error.
+    /// First param: pointer to mbuf
+    /// Second param: length you want to add
+    /// Returns the address of where data starts now in mbuf
+    pub fn do_rte_pktmbuf_prepend(&self, struct_pt: *mut rte_mbuf, len: u16) -> Result<*mut u8> {
+        let rez: *mut c_char = rte_pktmbuf_prepend_real(struct_pt, len);
+        if rez.is_null() {
             return Err(Error::PrependFailed);
         }
         // aici am ramas.
+        let buf_addr: *mut u8 = rez as *mut u8;
+        Ok(buf_addr)
     }
 
     /// UNSAFE FUNC
@@ -279,7 +286,7 @@ impl ClientDpdk {
         n: c_uint,
         available: *mut c_uint,
     ) -> Result<u32> {
-        let rez = unsafe { rte_ring_dequeue_burst_real(self.send_ring, obj_table, n, available) };
+        let rez = unsafe { rte_ring_dequeue_burst_real(self.receive_ring, obj_table, n, available) };
         // No error code is returned
         Ok(rez)
     }
@@ -376,7 +383,7 @@ impl ClientDpdk {
     fn do_rte_eal_init(&self) -> Result<()> {
         let m1 = CString::new("./executabil").expect("Nu a mers.\n");
         let m2 = CString::new("-l").expect("Nu a mers.\n");
-        let m3 = CString::new("1").expect("Nu a mers.\n");
+        let m3 = CString::new("2").expect("Nu a mers.\n");
         let m4 = CString::new("--proc-type=secondary").expect("Nu a mers.\n");
 
         // You have to be careful to call as_ptr() separately.

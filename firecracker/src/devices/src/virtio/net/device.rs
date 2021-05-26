@@ -358,16 +358,17 @@ impl Net {
         })?;
         let head_index = head_descriptor.index;
 
-        //TODO: Obtine mbuf-ul corect in array
-        let my_mbuf_pt = self.array_mbuf[self.index_mbuf];
-        self.index_mbuf = (self.index_mbuf + 1) % ARRAY_MBUFS as usize;
-        self.size_array = self.size_array - 1;
+        // Get the mbuf from the array
+        let my_mbuf_pt: *mut rte_mbuf = self.array_mbuf[self.index_mbuf];
         
-        //TODO: rte_pktmbuf_prepend vnet_header_size in mbuf data
-        
-        //TODO: initializeaza vnet header la inceput mbuf
-        // Aici trebuie inlocuit cu adresa de data a mbufului
-        let mut frame_slice = &self.rx_frame_buf[..self.rx_bytes_read];
+        // rte_pktmbuf_prepend vnet_header_size in mbuf data
+        let mut mbuf_data: *mut u8 = self.client.do_rte_pktmbuf_prepend(my_mbuf_pt, vnet_hdr_len() as u16).unwrap();
+    
+        // Add the vnet header
+        let mut mbuf_data_slice: &mut [u8] = unsafe { std::slice::from_raw_parts_mut(mbuf_data, (*my_mbuf_pt).data_len as usize) };
+        init_vnet_hdr(mbuf_data_slice);
+        // The frame slice that we write to guest's memory == the data from the mbuf + vnet header
+        let mut frame_slice =  mbuf_data_slice as &[u8];
         let frame_len = frame_slice.len();
 
         let mut maybe_next_descriptor = Some(head_descriptor);
@@ -419,6 +420,13 @@ impl Net {
         if result.is_ok() {
             METRICS.net.rx_bytes_count.add(frame_len);
             METRICS.net.rx_packets_count.inc();
+
+            self.index_mbuf = (self.index_mbuf + 1) % ARRAY_MBUFS as usize;
+            self.size_array = self.size_array - 1;
+
+            // Idea: maybe do bunch put somehow?
+            self.client.do_rte_mempool_put(my_mbuf_pt as *mut c_void);
+            warn!("Wrote on guest mem");
         }
 
         // TIPS IF U IMPLEMENT BY SAVING MBUF INTO VNET
@@ -591,6 +599,32 @@ impl Net {
         // };
     }
 
+    /// Added by Mihai
+    /// Replacement for read_from_secondary
+    /// Reads a burst from the shared rings and stores it into array_mbuf
+    /// If array_mbuf already has something, return ok
+    /// If dequeue burst gives nothing, return err(empty)
+    fn read_from_secondary_burst(&mut self) -> result::Result<usize, DeviceError> {
+
+        // Very important, if array mbuf is not empty, just return ok.
+        // So you dequeue burst only after u fully wrote the array.
+        // Idea: add a secondary array
+        if self.size_array != 0 {
+            return Ok(1);
+        }
+        let mut pt_to_array: *mut *mut c_void = self.array_mbuf.as_mut_ptr() as *mut *mut c_void;
+        // let mut adr_pt_to_array = &mut pt_to_array as *mut *mut c_void; 
+        let count = self.client.do_rte_ring_dequeue_burst(pt_to_array, ARRAY_MBUFS as u32, null_mut()).unwrap();
+
+        if count == 0 {
+            return Err(DeviceError::SecondaryEmpty);
+        }
+
+        self.size_array = count as usize;
+        warn!("Read burst from ring: {}", self.size_array);
+        Ok(self.size_array)
+    }
+
     // We currently prioritize packets from the MMDS over regular network packets.
     fn read_from_mmds_or_tap(&mut self) -> Result<usize> {
         //Removed by Mihai - MMDS stuff removed.
@@ -611,15 +645,23 @@ impl Net {
 
     fn process_rx(&mut self) -> result::Result<(), DeviceError> {
         // Read as many frames as possible.
+        warn!("Enter process_rx");
         loop {
-            match self.read_from_secondary() {
+            match self.read_from_secondary_burst() {
                 Ok(count) => {
                     self.rx_bytes_read = count;
                     METRICS.net.rx_count.inc();
-                    if !self.rate_limited_rx_single_frame() {
-                        // Info by Mihai
-                        // Gets here only if write to guest fails with EmptyQueue or AddUsed
-                        self.rx_deferred_frame = true;
+                    while self.size_array != 0 {
+                        if !self.rate_limited_rx_single_frame() {
+                            // Info by Mihai
+                            // Gets here only if write to guest fails with EmptyQueue or AddUsed
+                            self.rx_deferred_frame = true;
+                            break;
+                        }
+                    }
+                    // if it is not deferred, then all array was written on guest memory
+                    // and it will loop again to read a burst
+                    if self.rx_deferred_frame == true {
                         break;
                     }
                 }
@@ -627,28 +669,8 @@ impl Net {
                 Err(DeviceError::SecondaryEmpty) => {
                     break;
                 }
-                // If the channel was closed report as error. 
-                Err(DeviceError::SecondaryClosed) => {
-                    error!("Failed to read secondary because secondary closed.");
-                    METRICS.net.tap_read_fails.inc();
-                    return Err(DeviceError::FailedReadTap);
-                }
-                // Removed by Mihai
-                // Err(Error::IO(e)) => {
-                //     // The tap device is non-blocking, so any error aside from EAGAIN is
-                //     // unexpected.
-                //     match e.raw_os_error() {
-                //         Some(err) if err == EAGAIN => (),
-                //         _ => {
-                //             error!("Failed to read tap: {:?}", e);
-                //             METRICS.net.tap_read_fails.inc();
-                //             return Err(DeviceError::FailedReadTap);
-                //         }
-                //     };
-                //     break;
-                // }
-                Err(e) => {
-                    error!("Spurious error in network RX: {:?}", e);
+                Err(_) => {
+                    warn!("This should not happen and I have to chance the error type of the read_from_secondary_burst func");
                 }
             }
         }
