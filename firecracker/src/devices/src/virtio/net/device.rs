@@ -60,7 +60,7 @@ use std::ptr::{
 
 use std::ffi::c_void;
 
-use crate::virtio::net::ArrayTuple;
+use crate::virtio::net::{ArrayTuple, ARRAY_MBUFS};
 
 enum FrontendError {
     AddUsed,
@@ -170,8 +170,12 @@ pub struct Net {
     //Using this eventFd to know when secondary dpdk has data to send to net device.
     pub(crate) event_secondary_dpdk: EventFd,
     pub(crate) client: Arc<ClientDpdk>,
+    //Using these two to dequeue burst received packets from RX RING DPDK
+    array_mbuf: [*mut rte_mbuf; ARRAY_MBUFS],
+    index_mbuf: usize,
+    size_array: usize,
 }
-
+unsafe impl Send for Net {}
 impl Net {
     /// Create a new virtio network device with the given TAP interface.
     pub fn new_with_tap(
@@ -262,7 +266,10 @@ impl Net {
             #[cfg(test)]
             mocks: Mocks::default(),
             event_secondary_dpdk: event_secondary_dpdk,
-            client: client
+            client: client,
+            array_mbuf: [null_mut(); ARRAY_MBUFS],
+            index_mbuf: 0,
+            size_array: 0,
         })
     }
 
@@ -351,8 +358,18 @@ impl Net {
         })?;
         let head_index = head_descriptor.index;
 
+        //TODO: Obtine mbuf-ul corect in array
+        let my_mbuf_pt = self.array_mbuf[self.index_mbuf];
+        self.index_mbuf = (self.index_mbuf + 1) % ARRAY_MBUFS as usize;
+        self.size_array = self.size_array - 1;
+        
+        //TODO: rte_pktmbuf_prepend vnet_header_size in mbuf data
+        
+        //TODO: initializeaza vnet header la inceput mbuf
+        // Aici trebuie inlocuit cu adresa de data a mbufului
         let mut frame_slice = &self.rx_frame_buf[..self.rx_bytes_read];
         let frame_len = frame_slice.len();
+
         let mut maybe_next_descriptor = Some(head_descriptor);
         while let Some(descriptor) = &maybe_next_descriptor {
             if frame_slice.is_empty() {

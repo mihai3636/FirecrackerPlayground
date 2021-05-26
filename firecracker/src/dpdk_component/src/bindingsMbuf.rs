@@ -12894,6 +12894,13 @@ extern "C" {
 extern "C" {
     pub fn rte_pktmbuf_dump(f: *mut FILE, m: *const rte_mbuf, dump_len: ::std::os::raw::c_uint);
 }
+
+extern "C" {
+    pub fn rte_pktmbuf_prepend_real(
+        m: *mut rte_mbuf,
+        len: u16,
+    ) -> *mut ::std::os::raw::c_char;
+}
 extern "C" {
     pub fn rte_ring_dequeue_real(
         r: *mut rte_ring,

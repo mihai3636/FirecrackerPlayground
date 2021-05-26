@@ -14,6 +14,7 @@ use crate::bindingsMbuf::{
     rte_ring_empty_real,
     rte_ring_enqueue_burst_real,
     rte_ring_dequeue_burst_real,
+    rte_pktmbuf_prepend_real,
 };
 
 use utils::eventfd::EventFd;
@@ -99,6 +100,14 @@ impl ClientDpdk {
         }
 
         warn!("{}", output);
+    }
+
+    fn do_rte_pktmbuf_prepend(&self, struct_pt: *mut rte_mbuf, len: u16) -> Result(*mut u8) {
+        let rez = unsafe { rte_pktmbuf_prepend_real(struct_pt, len) };
+        if is_null(rez) {
+            return Err(Error::PrependFailed);
+        }
+        // aici am ramas.
     }
 
     /// UNSAFE FUNC

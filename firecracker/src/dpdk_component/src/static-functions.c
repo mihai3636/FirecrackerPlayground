@@ -29,3 +29,7 @@ unsigned int rte_ring_enqueue_burst_real(struct rte_ring *r, void* const* obj_ta
 unsigned int rte_ring_dequeue_burst_real(struct rte_ring *r, void **obj_table, unsigned int n, unsigned int* available) {
     return rte_ring_dequeue_burst(r, obj_table, n, available);
 }
+
+char* rte_pkt_mbuf_prepend_real(struct rte_mbuf *m, uint16_t len) {
+    return rte_pktmbuf_prepend(m, len);
+}
