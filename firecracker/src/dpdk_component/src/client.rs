@@ -108,13 +108,23 @@ impl ClientDpdk {
     /// Second param: length you want to add
     /// Returns the address of where data starts now in mbuf
     pub fn do_rte_pktmbuf_prepend(&self, struct_pt: *mut rte_mbuf, len: u16) -> Result<*mut u8> {
-        let rez: *mut c_char = rte_pktmbuf_prepend_real(struct_pt, len);
-        if rez.is_null() {
+        let data_off = unsafe { (*struct_pt).data_off };
+        if len > data_off {
             return Err(Error::PrependFailed);
         }
-        // aici am ramas.
-        let buf_addr: *mut u8 = rez as *mut u8;
-        Ok(buf_addr)
+        let mut data_addr: *mut u8 = null_mut();
+        unsafe {
+            (*struct_pt).data_off = data_off - len;
+            (*struct_pt).data_len = (*struct_pt).data_len + len;
+            (*struct_pt).pkt_len = (*struct_pt).pkt_len + len as u32;
+            let mut buf_adr_char: *mut c_void = (*struct_pt).buf_addr;
+            let mut buf_adr_data = (buf_adr_char as *mut u8).offset((*struct_pt).data_off as isize);
+            // Those prints are showing the right information, but in the debug windows it says data_adr is 0.
+            // f u lldb 
+            data_addr = buf_adr_data;
+        };
+
+        Ok(data_addr)
     }
 
     /// UNSAFE FUNC

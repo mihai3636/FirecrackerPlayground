@@ -420,13 +420,18 @@ impl Net {
         if result.is_ok() {
             METRICS.net.rx_bytes_count.add(frame_len);
             METRICS.net.rx_packets_count.inc();
-
-            self.index_mbuf = (self.index_mbuf + 1) % ARRAY_MBUFS as usize;
+            // It is not modulo  ARRAY_MBUFS
+            // It should be modulo number of the mbufs read originally.
+            self.index_mbuf = self.index_mbuf + 1;
             self.size_array = self.size_array - 1;
+
+            if self.size_array == 0 {
+                self.index_mbuf = 0;
+            }
 
             // Idea: maybe do bunch put somehow?
             self.client.do_rte_mempool_put(my_mbuf_pt as *mut c_void);
-            warn!("Wrote on guest mem");
+            // warn!("Wrote on guest mem");
         }
 
         // TIPS IF U IMPLEMENT BY SAVING MBUF INTO VNET
@@ -621,7 +626,7 @@ impl Net {
         }
 
         self.size_array = count as usize;
-        warn!("Read burst from ring: {}", self.size_array);
+        // warn!("Read burst from ring: {}", self.size_array);
         Ok(self.size_array)
     }
 
@@ -645,7 +650,6 @@ impl Net {
 
     fn process_rx(&mut self) -> result::Result<(), DeviceError> {
         // Read as many frames as possible.
-        warn!("Enter process_rx");
         loop {
             match self.read_from_secondary_burst() {
                 Ok(count) => {

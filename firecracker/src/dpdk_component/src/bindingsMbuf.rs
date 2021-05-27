@@ -12894,6 +12894,8 @@ extern "C" {
 extern "C" {
     pub fn rte_pktmbuf_dump(f: *mut FILE, m: *const rte_mbuf, dump_len: ::std::os::raw::c_uint);
 }
+// For some reason this would return 0 even if the mbuf passed is ok.
+// And it also successfully modifies the mbuf.
 extern "C" {
     pub fn rte_pktmbuf_prepend_real(
         m: *mut rte_mbuf,
