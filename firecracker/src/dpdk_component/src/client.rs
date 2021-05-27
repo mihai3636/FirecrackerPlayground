@@ -303,7 +303,7 @@ impl ClientDpdk {
     fn do_rte_eal_init(&self) -> Result<()> {
         let m1 = CString::new("./executabil").expect("Nu a mers.\n");
         let m2 = CString::new("-l").expect("Nu a mers.\n");
-        let m3 = CString::new("1").expect("Nu a mers.\n");
+        let m3 = CString::new("2").expect("Nu a mers.\n");
         let m4 = CString::new("--proc-type=secondary").expect("Nu a mers.\n");
 
         // You have to be careful to call as_ptr() separately.
