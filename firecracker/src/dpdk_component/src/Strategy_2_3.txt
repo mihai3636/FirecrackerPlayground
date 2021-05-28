@@ -1,0 +1,4 @@
+Burst enq + deq sunt funtionale.
+
+Dar chiar daca am burst deq, nu obtin mai mult de 20MB throughput catre VM.
+Pe acest branch incerc sa optimizez throughputul pe cazul in care VM-ul primeste.
