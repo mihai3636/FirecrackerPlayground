@@ -16,3 +16,9 @@ Din cate observ coada nu ajunge niciodata plina.
 in continuare coada (rte ring) devina plina la microVM RX
 
 ---------------------------------------------------------------------
+
+update 2
+
+Am implementat burst dequeue pentru ring-ul RX in Firecracker
+Dupa improvement-urile de sistem, s-a dus in 20MB (de la max 5) atunci cand microVM primeste TCP / UDP
+Trebuie sa inspectez de ce atunci cand primeste e un throughput mic comparativ cu atunci cand microVM trimite (200MB)
