@@ -2,3 +2,5 @@ Burst enq + deq sunt funtionale.
 
 Dar chiar daca am burst deq, nu obtin mai mult de 20MB throughput catre VM.
 Pe acest branch incerc sa optimizez throughputul pe cazul in care VM-ul primeste.
+---------------------
+idee: fa dequeue burst pana cand umpli bufferul sau pana cand iti da 0 mbufs

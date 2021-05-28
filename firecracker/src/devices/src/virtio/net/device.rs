@@ -617,16 +617,30 @@ impl Net {
         if self.size_array != 0 {
             return Ok(1);
         }
+        let mut total = 0;
         let mut pt_to_array: *mut *mut c_void = self.array_mbuf.as_mut_ptr() as *mut *mut c_void;
-        // let mut adr_pt_to_array = &mut pt_to_array as *mut *mut c_void; 
-        let count = self.client.do_rte_ring_dequeue_burst(pt_to_array, ARRAY_MBUFS as u32, null_mut()).unwrap();
+        let mut count = self.client.do_rte_ring_dequeue_burst(pt_to_array, ARRAY_MBUFS as u32, null_mut()).unwrap() as usize;
 
         if count == 0 {
             return Err(DeviceError::SecondaryEmpty);
         }
+        
+        total = total + count;
 
-        self.size_array = count as usize;
-        // warn!("Read burst from ring: {}", self.size_array);
+        if count != ARRAY_MBUFS {
+            let mut pt_to_array_cursor = pt_to_array;
+            let mut remaining_space = ARRAY_MBUFS;
+            while count != 0 && remaining_space != 0 {
+                // current pos + how many mbufs I got last time
+                pt_to_array_cursor = unsafe { pt_to_array_cursor.offset(count as isize) };
+                remaining_space = remaining_space - count;
+                count = self.client.do_rte_ring_dequeue_burst(pt_to_array_cursor, remaining_space as u32, null_mut()).unwrap() as usize;
+                total = total + count;
+            }
+        }
+
+        self.size_array = total as usize;
+        // warn!("Burst: {}", self.size_array);
         Ok(self.size_array)
     }
 
