@@ -26,6 +26,7 @@ use std::io;
 
 use std::sync::mpsc::{Receiver, channel, TryRecvError, Sender};
 use std::time;
+use std::thread;
 
 use std::ffi::CString;
 use std::os::raw::{c_void, c_uint, c_char};
@@ -393,7 +394,7 @@ impl ClientDpdk {
     fn do_rte_eal_init(&self) -> Result<()> {
         let m1 = CString::new("./executabil").expect("Nu a mers.\n");
         let m2 = CString::new("-l").expect("Nu a mers.\n");
-        let m3 = CString::new("2").expect("Nu a mers.\n");
+        let m3 = CString::new("4").expect("Nu a mers.\n");
         let m4 = CString::new("--proc-type=secondary").expect("Nu a mers.\n");
 
         // You have to be careful to call as_ptr() separately.
@@ -465,6 +466,7 @@ impl ClientDpdk {
                 // Enters here only if mbuf was waiting in the queue
                 self.event_dpdk_secondary.write(1).map_err(|e| {
                     error!("Failed to signal the Net device from DpdkClient {:?}", e);
+                    // thread::sleep(time::Duration::from_millis(1));
                 });
             }
         }
