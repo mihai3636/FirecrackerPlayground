@@ -43,6 +43,7 @@ use std::sync::mpsc;
 use std::boxed::Box;
 use std::option;
 use std::time::Duration;
+use std::time::Instant;
 
 use dpdk_component::client::{
     ClientDpdk,
@@ -360,6 +361,7 @@ impl Net {
 
         // Get the mbuf from the array
         let my_mbuf_pt: *mut rte_mbuf = self.array_mbuf[self.index_mbuf];
+        // unsafe { warn!("{}", (*my_mbuf_pt).data_len)};
         
         // rte_pktmbuf_prepend vnet_header_size in mbuf data
         let mut mbuf_data: *mut u8 = self.client.do_rte_pktmbuf_prepend(my_mbuf_pt, vnet_hdr_len() as u16).unwrap();
@@ -678,7 +680,6 @@ impl Net {
                 }
             }
         }
-
         // At this point we processed as many Rx frames as possible.
         // We have to wake the guest if at least one descriptor chain has been used.
         self.signal_rx_used_queue()
@@ -755,7 +756,11 @@ impl Net {
                 tx_queue
                     .add_used(mem, head_index, 0)
                     .map_err(DeviceError::QueueError)?;
-                raise_irq = true;
+                // I should not raise irq from here in case there was nothing to read.
+                // The raise irq is not only after reading at least something. And it
+                // will be done in case something is actually read.
+
+                // raise_irq = true;
                 warn!("TX: write only case");
                 continue;
             }
@@ -821,6 +826,7 @@ impl Net {
                 (*mbuf_struct).pkt_len = (read_count - vnet_hdr_len() as usize) as u32;
                 (*mbuf_struct).nb_segs = 1;
                 (*mbuf_struct).ol_flags = PKT_TX_TCP_CKSUM;
+                // warn!("{}", (*mbuf_struct).data_len);
             }
 
             if burst_size > index_array + 1 {

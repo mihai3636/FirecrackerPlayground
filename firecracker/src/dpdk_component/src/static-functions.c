@@ -33,3 +33,15 @@ unsigned int rte_ring_dequeue_burst_real(struct rte_ring *r, void **obj_table, u
 char* rte_pktmbuf_prepend_real(struct rte_mbuf *m, uint16_t len) {
     return rte_pktmbuf_prepend(m, len);
 }
+
+struct rte_mbuf* rte_pktmbuf_alloc_real(struct rte_mempool* mp) {
+    return rte_pktmbuf_alloc(mp);
+}
+
+int rte_pktmbuf_alloc_bulk_real(struct rte_mempool* pool, struct rte_mbuf** mbufs, unsigned count) {
+    return rte_pktmbuf_alloc_bulk(pool, mbufs, count);
+}
+
+void rte_pktmbuf_free_real(struct rte_mbuf* m) {
+    rte_pktmbuf_free(m);
+}

@@ -12941,6 +12941,26 @@ extern "C" {
         obj: *mut ::std::os::raw::c_void,
     );
 }
+// struct rte_mbuf* rte_pktmbuf_alloc_real(struct rte_mempool* mp);
+// int rte_pktmbuf_alloc_bulk_real(struct rte_mempool* pool, struct rte_mbuf** mbufs, unsigned count);
+// void rte_pktmbuf_free_real(struct rte_mbuf* m);
+extern "C" {
+    pub fn rte_pktmbuf_alloc_real(
+        mp: *mut rte_mempool,
+    ) -> *mut rte_mbuf;
+}
+extern "C" {
+    pub fn rte_pktmbuf_alloc_bulk_real(
+        pool: *mut rte_mempool,
+        mbufs: *mut *mut rte_mbuf,
+        count: ::std::os::raw::c_uint,
+    ) -> ::std::os::raw::c_int;
+}
+extern "C" {
+    pub fn rte_pktmbuf_free_real(
+        m: *mut rte_mbuf,
+    ) -> ::std::os::raw::c_void;
+}
 extern "C" {
     pub fn rte_ring_empty_real(
         r: *mut rte_ring

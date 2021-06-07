@@ -15,6 +15,9 @@ use crate::bindingsMbuf::{
     rte_ring_enqueue_burst_real,
     rte_ring_dequeue_burst_real,
     rte_pktmbuf_prepend_real,
+    rte_pktmbuf_alloc_real,
+    rte_pktmbuf_alloc_bulk_real,
+    rte_pktmbuf_free_real,
 };
 
 use utils::eventfd::EventFd;
@@ -29,7 +32,7 @@ use std::time;
 use std::thread;
 
 use std::ffi::CString;
-use std::os::raw::{c_void, c_uint, c_char};
+use std::os::raw::{c_void, c_uint, c_char, c_int};
 use std::ptr::{copy, null_mut, copy_nonoverlapping,};
 
 use logger::{warn, error};
@@ -101,6 +104,31 @@ impl ClientDpdk {
         }
 
         warn!("{}", output);
+    }
+
+    /// NOT TESTED
+    /// Uses rte_pktmbuf_alloc_bulk binding to get a bulk of mbufs from mempool
+    /// Returns 0 on success
+    /// Returns MempoolGEtFailed, not enough entris in mempool, no mbufs are retrieved
+    pub fn do_rte_pktmbuf_alloc_bulk(&self, mbufs: *mut *mut rte_mbuf, count: c_uint) -> Result<c_int> {
+        let res = unsafe { rte_pktmbuf_alloc_bulk_real(self.mempool, mbufs, count) };
+        if res == 0 {
+            return Ok(res);
+        }
+        return Err(Error::MempoolGetFailed);
+    }
+
+    /// NOT TESTED
+    /// Uses rte_pktmbuf_alloc binding to get a new mbuf from mempool
+    /// Returns MempoolGetFailed if it did not work
+    /// Returns pointer to mbuf on success
+    pub fn do_rte_pktmbuf_alloc(&self) -> Result<*mut rte_mbuf> {
+        let my_mbuf = unsafe { rte_pktmbuf_alloc_real(self.mempool) };
+
+        if my_mbuf.is_null() {
+            return Err(Error::MempoolGetFailed);
+        }
+        Ok(my_mbuf)
     }
 
     /// Just adds some more space at the begining of the mbuf data. 
