@@ -175,6 +175,9 @@ pub struct Net {
     array_mbuf: [*mut rte_mbuf; ARRAY_MBUFS],
     index_mbuf: usize,
     size_array: usize,
+    last_tx: Instant,
+    total_tx: usize,
+
 }
 unsafe impl Send for Net {}
 impl Net {
@@ -271,6 +274,8 @@ impl Net {
             array_mbuf: [null_mut(); ARRAY_MBUFS],
             index_mbuf: 0,
             size_array: 0,
+            last_tx: Instant::now(),
+            total_tx: 0,
         })
     }
 
@@ -733,6 +738,14 @@ impl Net {
 
         while let Some(head) = tx_queue.pop(mem) {
 
+            let now: Instant = Instant::now();
+            let time_spent: Duration = now.duration_since(self.last_tx);
+            if time_spent.as_secs() > 10 {
+                warn!("10s: {}", self.total_tx);
+                self.total_tx = 0;
+                self.last_tx = Instant::now();
+            }
+
             let head_index = head.index;
             let mut read_count = 0;
             let mut next_desc = Some(head);
@@ -836,6 +849,8 @@ impl Net {
                 // Am umplut array-ul cu mbuf-uri si trebuie sa-l trimit.
                  // Now I have to enqueue the mbuf
                 self.client.enqueue_burst_untill_done(array_mbufs.as_mut_ptr(), burst_size as u32, null_mut());
+                // Count the number of mbufs successfully enqed
+                self.total_tx = self.total_tx + index_array;
                 index_array = 0;
                 // warn!("Enq: {}", burst_size);
             }
@@ -849,6 +864,8 @@ impl Net {
         if index_array != 0 {
             let nr_mbufs: u32 = index_array as u32;
             self.client.enqueue_burst_untill_done(array_mbufs.as_mut_ptr(), nr_mbufs, null_mut());
+            // count the number of mbufs successfully enqed
+            self.total_tx = self.total_tx + index_array;
             // warn!("Enq: {}", nr_mbufs);
         }
     
