@@ -18,6 +18,7 @@ use crate::bindingsMbuf::{
     rte_pktmbuf_alloc_real,
     rte_pktmbuf_alloc_bulk_real,
     rte_pktmbuf_free_real,
+    rte_pktmbuf_clone
 };
 
 use utils::eventfd::EventFd;
@@ -104,6 +105,19 @@ impl ClientDpdk {
         }
 
         warn!("{}", output);
+    }
+
+    /// NOT TESTED
+    /// Uses rte_pktmbuf_clone binding to create a new mbuf from an already existing one.
+    /// First param: the already existing mbuf address
+    /// Uses the mempool of the client (self) object
+    /// Returns error if it wasn't able to allocate an mbuf from the pool
+    pub fn do_rte_pktmbuf_clone(&self, mbuf: *mut rte_mbuf) -> Result<*mut rte_mbuf> {
+        let res_mbuf: *mut rte_mbuf = unsafe { rte_pktmbuf_clone(mbuf, self.mempool) };
+        if res_mbuf.is_null() {
+            return Err(Error::MempoolGetFailed);
+        }
+        Ok(res_mbuf)
     }
 
     /// NOT TESTED

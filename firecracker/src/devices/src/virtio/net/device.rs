@@ -61,7 +61,7 @@ use std::ptr::{
 
 use std::ffi::c_void;
 
-use crate::virtio::net::{ArrayTuple, ARRAY_MBUFS};
+use crate::virtio::net::{ArrayTuple, ARRAY_MBUFS, TIME_LIMIT};
 
 enum FrontendError {
     AddUsed,
@@ -635,8 +635,8 @@ impl Net {
         // Counting the total number of mbufs received.
         self.total_rx = self.total_rx + count as usize;
         let now = Instant::now();
-        if now.duration_since(self.last_rx).as_secs() > 10 {
-            warn!("Rx after 10s: {}", self.total_rx);
+        if now.duration_since(self.last_rx).as_secs() > TIME_LIMIT {
+            warn!("Rx: {}", self.total_rx);
             self.total_rx = 0;
             self.last_rx = Instant::now();
         }
@@ -745,7 +745,8 @@ impl Net {
         // Citesc din guest -> pun in mbuf -> pun in array
         // Cand se unmple array, dau enqueue_burst (cat timp dai enqueue burst?)
         // Apoi continui iar sa citesc din guest si repet procesul
-        const burst_size: usize = 512;
+        // const burst_size: usize = 512 * 2;
+        const burst_size: usize = 2048;
         let mut array_mbufs = [null_mut(); burst_size];
         let mut index_array = 0;
 
@@ -753,8 +754,8 @@ impl Net {
 
             let now: Instant = Instant::now();
             let time_spent: Duration = now.duration_since(self.last_tx);
-            if time_spent.as_secs() > 10 {
-                warn!("TX 10s: {}", self.total_tx);
+            if time_spent.as_secs() > TIME_LIMIT {
+                warn!("TX: {}", self.total_tx);
                 self.total_tx = 0;
                 self.last_tx = Instant::now();
             }
@@ -762,7 +763,7 @@ impl Net {
             let head_index = head.index;
             let mut read_count = 0;
             let mut next_desc = Some(head);
-            
+
             let mut was_nothing_to_read = 0;
 
             self.tx_iovec.clear();
@@ -853,6 +854,13 @@ impl Net {
                 (*mbuf_struct).nb_segs = 1;
                 (*mbuf_struct).ol_flags = PKT_TX_TCP_CKSUM;
                 // warn!("{}", (*mbuf_struct).data_len);
+            }
+
+            while burst_size > index_array + 10 {
+                // Warning, this clone call may fail if mempool does not have mbuf available
+                let mbuf_clone = self.client.do_rte_pktmbuf_clone(my_mbuf as *mut rte_mbuf).unwrap();
+                array_mbufs[index_array] = mbuf_clone as *mut c_void;
+                index_array = index_array + 1;
             }
 
             if burst_size > index_array + 1 {
