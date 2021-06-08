@@ -177,7 +177,8 @@ pub struct Net {
     size_array: usize,
     last_tx: Instant,
     total_tx: usize,
-
+    last_rx: Instant,
+    total_rx: usize,
 }
 unsafe impl Send for Net {}
 impl Net {
@@ -276,7 +277,10 @@ impl Net {
             size_array: 0,
             last_tx: Instant::now(),
             total_tx: 0,
-        })
+            last_rx: Instant::now(),
+            total_rx: 0,
+            }
+        )
     }
 
     /// Added by Mihai
@@ -628,6 +632,15 @@ impl Net {
         // let mut adr_pt_to_array = &mut pt_to_array as *mut *mut c_void; 
         let count = self.client.do_rte_ring_dequeue_burst(pt_to_array, ARRAY_MBUFS as u32, null_mut()).unwrap();
 
+        // Counting the total number of mbufs received.
+        self.total_rx = self.total_rx + count as usize;
+        let now = Instant::now();
+        if now.duration_since(self.last_rx).as_secs() > 10 {
+            warn!("Rx after 10s: {}", self.total_rx);
+            self.total_rx = 0;
+            self.last_rx = Instant::now();
+        }
+
         if count == 0 {
             return Err(DeviceError::SecondaryEmpty);
         }
@@ -741,7 +754,7 @@ impl Net {
             let now: Instant = Instant::now();
             let time_spent: Duration = now.duration_since(self.last_tx);
             if time_spent.as_secs() > 10 {
-                warn!("10s: {}", self.total_tx);
+                warn!("TX 10s: {}", self.total_tx);
                 self.total_tx = 0;
                 self.last_tx = Instant::now();
             }
