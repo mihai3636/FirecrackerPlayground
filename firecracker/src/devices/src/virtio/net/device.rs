@@ -52,6 +52,7 @@ use dpdk_component::client::{
 use dpdk_component::bindingsMbuf::{
     rte_mbuf,
     PKT_TX_TCP_CKSUM,
+    PKT_TX_UDP_CKSUM,
 };
 
 use std::ptr::{
@@ -61,7 +62,7 @@ use std::ptr::{
 
 use std::ffi::c_void;
 
-use crate::virtio::net::{ArrayTuple, ARRAY_MBUFS};
+use crate::virtio::net::{ArrayTuple, ARRAY_MBUFS ,TX_BURST_SIZE};
 
 enum FrontendError {
     AddUsed,
@@ -727,7 +728,7 @@ impl Net {
         // Citesc din guest -> pun in mbuf -> pun in array
         // Cand se unmple array, dau enqueue_burst (cat timp dai enqueue burst?)
         // Apoi continui iar sa citesc din guest si repet procesul
-        const burst_size: usize = 512;
+        const burst_size: usize = TX_BURST_SIZE;
         let mut array_mbufs = [null_mut(); burst_size];
         let mut index_array = 0;
 
@@ -825,7 +826,7 @@ impl Net {
                 (*mbuf_struct).data_len = (read_count - vnet_hdr_len() as usize) as u16;
                 (*mbuf_struct).pkt_len = (read_count - vnet_hdr_len() as usize) as u32;
                 (*mbuf_struct).nb_segs = 1;
-                (*mbuf_struct).ol_flags = PKT_TX_TCP_CKSUM;
+                // (*mbuf_struct).ol_flags = PKT_TX_TCP_CKSUM;
                 // warn!("{}", (*mbuf_struct).data_len);
             }
 
@@ -912,7 +913,7 @@ impl Net {
         // Process a deferred frame first if available. Don't read from tap again
         // until we manage to receive this deferred frame.
         {   
-            warn!("HANDLE DEFFERED FRAME");
+            // warn!("HANDLE DEFFERED FRAME");
             self.handle_deferred_frame()
                 .unwrap_or_else(report_net_event_fail);
         } else {
