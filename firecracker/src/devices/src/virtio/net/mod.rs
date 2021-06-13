@@ -43,5 +43,6 @@ pub enum Error {
 pub type Result<T> = result::Result<T, Error>;
 pub type ArrayTuple = std::boxed::Box<([u8; MAX_BUFFER_SIZE], usize)>;
 // pub const ARRAY_MBUFS: usize = 256;
-pub const ARRAY_MBUFS: usize = 4096;
+pub const ARRAY_MBUFS: usize = 1024;
+pub const TX_BURST_SIZE: usize = 1024;
 

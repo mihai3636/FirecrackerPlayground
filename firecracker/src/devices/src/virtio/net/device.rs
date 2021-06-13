@@ -60,7 +60,7 @@ use std::ptr::{
 
 use std::ffi::c_void;
 
-use crate::virtio::net::{ArrayTuple, ARRAY_MBUFS};
+use crate::virtio::net::{ArrayTuple, ARRAY_MBUFS, TX_BURST_SIZE};
 
 enum FrontendError {
     AddUsed,
@@ -740,8 +740,8 @@ impl Net {
         // Citesc din guest -> pun in mbuf -> pun in array
         // Cand se unmple array, dau enqueue_burst (cat timp dai enqueue burst?)
         // Apoi continui iar sa citesc din guest si repet procesul
-        const burst_size: usize = 512;
-        let mut array_mbufs = [null_mut(); burst_size];
+        const BURST_SIZE: usize = TX_BURST_SIZE;
+        let mut array_mbufs = [null_mut(); BURST_SIZE];
         let mut index_array = 0;
 
         while let Some(head) = tx_queue.pop(mem) {
@@ -769,8 +769,12 @@ impl Net {
                 tx_queue
                     .add_used(mem, head_index, 0)
                     .map_err(DeviceError::QueueError)?;
-                raise_irq = true;
-                warn!("TX: write only case");
+                // raise_irq = true;
+                // warn!("TX: write only case");
+
+                // I should not raise irq from here in case there was nothing to read.
+                // The raise irq is not only after reading at least something. And it
+                // will be done in case something is actually read.
                 continue;
             }
 
@@ -834,16 +838,16 @@ impl Net {
                 (*mbuf_struct).data_len = (read_count - vnet_hdr_len() as usize) as u16;
                 (*mbuf_struct).pkt_len = (read_count - vnet_hdr_len() as usize) as u32;
                 (*mbuf_struct).nb_segs = 1;
-                (*mbuf_struct).ol_flags = PKT_TX_TCP_CKSUM;
+                // (*mbuf_struct).ol_flags = PKT_TX_TCP_CKSUM;
             }
 
-            if burst_size > index_array + 1 {
+            if BURST_SIZE > index_array + 1 {
                 array_mbufs[index_array] = my_mbuf;
                 index_array = index_array + 1;
             } else {
                 // Am umplut array-ul cu mbuf-uri si trebuie sa-l trimit.
                  // Now I have to enqueue the mbuf
-                self.client.enqueue_burst_untill_done(array_mbufs.as_mut_ptr(), burst_size as u32, null_mut());
+                self.client.enqueue_burst_untill_done(array_mbufs.as_mut_ptr(), BURST_SIZE as u32, null_mut());
                 index_array = 0;
                 // warn!("Enq: {}", burst_size);
             }
@@ -920,7 +924,7 @@ impl Net {
         // Process a deferred frame first if available. Don't read from tap again
         // until we manage to receive this deferred frame.
         {   
-            warn!("HANDLE DEFFERED FRAME");
+            // warn!("HANDLE DEFFERED FRAME");
             self.handle_deferred_frame()
                 .unwrap_or_else(report_net_event_fail);
         } else {
